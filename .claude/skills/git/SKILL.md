@@ -103,7 +103,7 @@ git diff --stat
 ### Step 6 — Push 成功後
 
 Push 成功後：
-1. 刪除 `.claude/skills/git/pending-commits.md`
+1. 清空 `.claude/skills/git/pending-commits.md`（保留檔案，內容清為空）
 2. 回報完成：
 
 ```
