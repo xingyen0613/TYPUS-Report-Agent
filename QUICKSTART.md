@@ -13,6 +13,7 @@
 | `/convert-report-format` | 将月报转换为 HTML 格式 | 月报 |
 | `/weekly-report-prepare` | 验证週报数据、计算指标、产出 Data Brief | 週报 |
 | `/weekly-report-generate` | 生成週报 + 副标题 + X Threads | 週报 |
+| `/push` | 推送本地变更到 GitHub（自动产生或使用指定 commit message） | 通用 |
 
 ---
 

@@ -30,7 +30,7 @@ typus-report/
 
 ## 🎯 全部 Skills 一览
 
-本项目共 9 个 Skills，分为数据抓取、月报流程、週报流程三类。
+本项目共 10 个 Skills，分为数据抓取、月报流程、週报流程、工具类四类。
 
 ---
 
@@ -216,6 +216,26 @@ typus-report/
 
 ---
 
+### 工具类
+
+#### `/push`
+**功能**：将本地变更推送到 GitHub
+
+**用途**：快速提交并推送变更，支持自动或手动指定 commit message
+
+**执行内容**：
+- 显示目前变更状态（`git status` + `git diff --stat`）
+- 自动产生中文 commit message（或使用指定内容）
+- 依序执行 `git add .` → `git commit` → `git push`
+
+**示例**：
+```bash
+/push                          # 自动产生 commit message
+/push 新增二月第四週週报        # 使用指定的 commit message
+```
+
+---
+
 ## 🔄 完整工作流程
 
 ### 月报工作流程
@@ -336,7 +356,9 @@ Skills 安装在本项目目录下（本地 Skills，优先级高于全局 Skill
 │   └── SKILL.md
 ├── weekly-report-prepare/
 │   └── SKILL.md
-└── weekly-report-generate/
+├── weekly-report-generate/
+│   └── SKILL.md
+└── push/
     └── SKILL.md
 ```
 
@@ -383,6 +405,9 @@ Zerocap 文章标题日期减 7 天 = 实际涵盖週的週一。例如标题 "2
 ---
 
 ## 📄 版本历史
+
+- **v2.1** (2026-03-04): 新增 `push` skill
+  - 新增 `/push`：一键推送本地变更到 GitHub，支持自动/手动 commit message
 
 - **v2.0** (2026-02-28): 新增週报功能
   - 新增 `fetch-sentio-data`：从 Sentio API 抓取链上数据（10 个 Query）
