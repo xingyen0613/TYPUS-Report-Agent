@@ -34,7 +34,7 @@ typus-report/
 
 ## 🎯 全部 Skills 一览
 
-本项目共 10 个 Skills，分为数据抓取、月报流程、週报流程、工具类四类。
+本项目共 10 个 Skills，分为数据抓取、月报流程、週报流程、工具类四类（`/git` 含两个子命令）。
 
 ---
 
@@ -232,20 +232,27 @@ typus-report/
 
 ### 工具类
 
-#### `/push`
-**功能**：将本地变更推送到 GitHub
+#### `/git`
+**功能**：统一 git 操作，支持两个子命令，解决多 session 并行时 commit message 不完整的问题
 
-**用途**：快速提交并推送变更，支持自动或手动指定 commit message
+**子命令：**
 
-**执行内容**：
-- 显示目前变更状态（`git status` + `git diff --stat`）
-- 自动产生中文 commit message（或使用指定内容）
+**`/git commit`** — 记录当前 session 的变更到跨 session 暂存（`pending-commits.md`）
+- 分析当前 `git diff`，产生简洁中文描述
+- 附加到 `.claude/skills/git/pending-commits.md`（格式：`- [HH:MM] <描述>`）
+- 不执行实际 git 操作，仅作记录
+
+**`/git push`** — 合并所有 pending 紀录 + 当前变更，推送到 GitHub
+- 读取 `pending-commits.md` 中所有 session 的紀录
+- 合并产生完整 commit message（或使用手动指定内容）
 - 依序执行 `git add .` → `git commit` → `git push`
+- Push 成功后自动清除 `pending-commits.md`
 
 **示例**：
 ```bash
-/push                          # 自动产生 commit message
-/push 新增二月第四週週报        # 使用指定的 commit message
+/git commit                    # 记录当前变更到 pending-commits
+/git push                      # 合并所有紀录并推送（自动产生 commit message）
+/git push 新增二月第四週週报   # 使用指定的 commit message 推送
 ```
 
 ---
@@ -261,7 +268,7 @@ typus-report/
 2. /monthly-report-generate    ← 生成月报
                                     └── 自动触发 /fetch-market-prices（若价格缺失）
 3. /convert-report-format      ← 转换为 HTML（可选）
-4. /push                       ← 推送到 GitHub（可选）
+4. /git push                   ← 推送到 GitHub（可选）
 ```
 
 > 也可提前手动执行 `/fetch-typus-data`、`/fetch-weekly-references`、`/fetch-market-prices`
@@ -276,7 +283,7 @@ typus-report/
 3. /weekly-report-generate     ← 生成週报
                                     ├── 自动触发 /weekly-report-prepare（若 Brief 缺失）
                                     └── 自动触发 /fetch-weekly-references（若市场参考缺失）
-4. /push                       ← 推送到 GitHub（可选）
+4. /git push                   ← 推送到 GitHub（可选）
 ```
 
 ---
@@ -384,8 +391,9 @@ Skills 安装在本项目目录下（本地 Skills，优先级高于全局 Skill
 │   └── SKILL.md
 ├── weekly-report-generate/
 │   └── SKILL.md
-└── push/
-    └── SKILL.md
+└── git/
+    ├── SKILL.md
+    └── pending-commits.md     # 跨 session 暂存（已加入 .gitignore）
 ```
 
 如需修改 Skills 行为，编辑对应目录下的 `SKILL.md` 文件，保存后立即生效。
@@ -434,8 +442,12 @@ Zerocap 文章标题日期减 7 天 = 实际涵盖週的週一。例如标题 "2
 
 ## 📄 版本历史
 
+- **v2.2** (2026-03-04): 統一 git 操作
+  - 新增 `/git`：取代 `/push`，支援 `/git commit`（跨 session 暫存）和 `/git push`（合併所有紀錄推送）
+  - 解決多 session 並行時 commit message 不完整的問題
+
 - **v2.1** (2026-03-04): 自动化强化 + 工具补全
-  - 新增 `/push`：一键推送本地变更到 GitHub，支持自动/手动 commit message
+  - 新增 `/push`（已由 `/git` 取代）：一键推送本地变更到 GitHub，支持自动/手动 commit message
   - `monthly-report-prepare` 新增自动触发 `fetch-typus-data` 和 `fetch-weekly-references`
   - `monthly-report-generate` 新增自动触发 `fetch-market-prices`
   - `weekly-report-prepare` 新增自动触发价格/市场参考抓取、生成 30D 绩效图表（PNG）

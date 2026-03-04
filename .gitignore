@@ -9,3 +9,6 @@
 # macOS system files
 .DS_Store
 **/.DS_Store
+
+# Git skill cross-session pending commits (ephemeral, not committed)
+.claude/skills/git/pending-commits.md
