@@ -8,8 +8,11 @@
 typus-report/
 ├── README.md                          # 项目说明（本文件）
 ├── QUICKSTART.md                      # 快速上手指南
+├── CLAUDE.md                          # 项目配置指令
+├── OPTIMIZATION_ROADMAP.md            # 优化路线图与已知问题
 ├── data-sources/                      # 数据源目录
 │   ├── README.md                      # 数据源说明
+│   ├── editorial-guidelines.md        # 编辑规范（数据呈现与叙事规则）
 │   ├── typus-data/                    # 核心营运数据（TVL, Users）自动或手动更新
 │   ├── weekly-references/             # 市场週报（Zerocap 等来源，自动抓取）
 │   ├── monthly-history/               # 历史月报存档
@@ -18,8 +21,9 @@ typus-report/
 │   ├── weekly-prices/                 # 週度价格数据（週报专用，自动生成）
 │   └── weekly-history/                # 历史週报存档
 ├── outputs/                           # 输出目录
-│   ├── drafts/                        # 月报草稿
-│   ├── final/                         # 月报最终成品
+│   ├── monthly/                       # 月报输出
+│   │   ├── draft/                     # 月报草稿
+│   │   └── final/                     # 月报最终成品
 │   └── weekly/                        # 週报输出
 │       ├── draft/                     # 週报草稿
 │       └── final/                     # 週报最终成品
@@ -75,7 +79,7 @@ typus-report/
 #### `/fetch-sentio-data`
 **功能**：从 Sentio 平台 API 抓取週报所需的 Typus 链上数据
 
-**用途**：週报的核心数据来源，自动执行 10 个查询
+**用途**：週报的核心数据来源，自动执行 11 个查询
 
 **执行内容**：
 - Q1 TLP 价格走势（mTLP & iTLP-TYPUS）
@@ -88,6 +92,7 @@ typus-report/
 - Q8 当前持仓快照（OI）
 - Q9 mTLP 资产组成（SUI/USDC 权重）
 - Q10 OI 历史变化
+- Q11 iTLP-TYPUS TVL
 - 保存为结构化 Markdown：`data-sources/sentio-data/week-{N}-{month}-{year}.md`
 
 **示例**：
@@ -123,13 +128,15 @@ typus-report/
 ### 月报流程
 
 #### `/monthly-report-prepare`
-**功能**：验证月报数据源完整性
+**功能**：验证月报数据源完整性，自动补全缺失数据
 
 **使用时机**：开始制作月报前
 
 **执行内容**：
 - 检查 Typus Data（核心营运数据）是否包含 M 和 M-1 数据
+  - 若当月数据缺失，**自动触发 `/fetch-typus-data`**
 - 检查 Weekly References（市场週报）是否覆盖完整月份
+  - 若週报不足，**自动触发 `/fetch-weekly-references`**
 - 检查 Monthly History（历史月报）是否有上月存档
 - 报告数据状态和缺失项
 
@@ -146,12 +153,13 @@ typus-report/
 **使用时机**：所有数据准备完成后
 
 **执行内容**：
+- 读取编辑规范（`editorial-guidelines.md`）
 - 索取补充资讯（产品进度、营运事件）
-- 整合所有数据源
-- 生成月报初稿（按 10 点架构）
+- 若月度价格缺失，**自动触发 `/fetch-market-prices`**
+- 整合所有数据源，生成月报初稿（按 10 点架构）
 - 提供 5 个英文副标题选项
 - 生成 X Threads（5 条推文）
-- 保存成品到 `outputs/final/`
+- 保存成品到 `outputs/monthly/final/`
 
 **示例**：
 ```bash
@@ -181,12 +189,16 @@ typus-report/
 #### `/weekly-report-prepare`
 **功能**：验证週报数据源、计算衍生指标、产出 Weekly Data Brief
 
-**使用时机**：Sentio 数据和价格数据抓取完成后
+**使用时机**：Sentio 数据抓取完成后（价格和市场参考会自动补全）
 
 **执行内容**：
-- 验证 Sentio 数据和週度价格数据是否存在
-- 解析原始数据，计算衍生指标（TLP 回报归因、Alpha、30 天绩效等）
+- 验证 Sentio 数据是否存在
+- 若週度价格缺失，**自动触发 `/fetch-market-prices`**
+- 若市场参考不足，**自动触发 `/fetch-weekly-references`**
+- 自动补全缺失的历史週数据（用于 30D 绩效计算）
+- 计算衍生指标（TLP 回报归因 / Alpha / 30D 绩效 / Sharpe Ratio 等）
 - 标记历史趋势（连续趋势、ATH、异常值）
+- **生成 30D 绩效图表**（PNG，保存至 `outputs/weekly/final/`）
 - 产出结构化 Weekly Data Brief（`data-sources/sentio-data/week-{N}-{month}-{year}-brief.md`）
 
 **示例**：
@@ -199,13 +211,15 @@ typus-report/
 #### `/weekly-report-generate`
 **功能**：根据 Weekly Data Brief 生成 TLP 週报、副标题、X Threads
 
-**使用时机**：Weekly Data Brief 准备完成后
+**使用时机**：Sentio 数据抓取完成后（Data Brief 和市场参考会自动补全）
 
 **执行内容**：
-- 自动读取 Weekly Data Brief 和市场参考
+- 读取编辑规范（`editorial-guidelines.md`）
+- 若 Weekly Data Brief 缺失，**自动触发 `/weekly-report-prepare`**
+- 若市场参考缺失，**自动触发 `/fetch-weekly-references`**
 - 向用户收集补充资讯（市场洞见、特殊事件）
 - 提议敘事方向与段落排序，等待确认
-- 撰写完整 Medium 文章草稿（600-800 字）
+- 撰写完整 Medium 文章草稿（600-800 字，无表格）
 - 用户审阅修改后产出最终版本
 - 生成 5 个副标题选项和 5 条 X Threads
 
@@ -241,22 +255,28 @@ typus-report/
 ### 月报工作流程
 
 ```
-1. /fetch-typus-data           ← 自动更新核心营运数据（可选，也可手动）
-2. /fetch-weekly-references    ← 自动抓取缺少的週报（可选，也可手动）
-3. /monthly-report-prepare     ← 验证数据完整性
-4. /fetch-market-prices        ← 获取月度价格（月度模式）
-5. /monthly-report-generate    ← 生成月报
-6. /convert-report-format      ← 转换为 HTML（可选）
+1. /monthly-report-prepare     ← 验证数据完整性（缺失数据自动补全）
+                                    ├── 自动触发 /fetch-typus-data（若数据缺失）
+                                    └── 自动触发 /fetch-weekly-references（若週报不足）
+2. /monthly-report-generate    ← 生成月报
+                                    └── 自动触发 /fetch-market-prices（若价格缺失）
+3. /convert-report-format      ← 转换为 HTML（可选）
+4. /push                       ← 推送到 GitHub（可选）
 ```
+
+> 也可提前手动执行 `/fetch-typus-data`、`/fetch-weekly-references`、`/fetch-market-prices`
 
 ### 週报工作流程
 
 ```
-1. /fetch-sentio-data          ← 抓取 Sentio 链上数据
-2. /fetch-market-prices        ← 获取週度价格（週度模式）
-3. /fetch-weekly-references    ← 抓取市场参考週报（可选，提升报告质量）
-4. /weekly-report-prepare      ← 验证数据、计算指标、产出 Data Brief
-5. /weekly-report-generate     ← 生成週报
+1. /fetch-sentio-data          ← 抓取 Sentio 链上数据（唯一必须手动执行的步骤）
+2. /weekly-report-prepare      ← 验证数据、计算指标、产出 Data Brief + 30D 图表
+                                    ├── 自动触发 /fetch-market-prices（若价格缺失）
+                                    └── 自动触发 /fetch-weekly-references（若週报不足）
+3. /weekly-report-generate     ← 生成週报
+                                    ├── 自动触发 /weekly-report-prepare（若 Brief 缺失）
+                                    └── 自动触发 /fetch-weekly-references（若市场参考缺失）
+4. /push                       ← 推送到 GitHub（可选）
 ```
 
 ---
@@ -291,6 +311,12 @@ Accumulated TLP Fee, TLP Fee
 
 - **原始数据**：`data-sources/sentio-data/week-{N}-{month}-{year}.md`
 - **Data Brief**：`data-sources/sentio-data/week-{N}-{month}-{year}-brief.md`
+- **30D 绩效图表**：`outputs/weekly/final/week-{N}-{month}-{year}-30d-performance.png`
+
+### Weekly References 文件命名
+
+- **格式**：`Week_DD Mon ~ DD Mon, YYYY.md`（含完整日期范围）
+- **示例**：`Week_26 Jan ~ 01 Feb, 2026.md`
 
 ---
 
@@ -392,6 +418,8 @@ Skills 安装在本项目目录下（本地 Skills，优先级高于全局 Skill
 
 Zerocap 文章标题日期减 7 天 = 实际涵盖週的週一。例如标题 "2 February 2026" → 实际涵盖 1 月 26 日（週一）至 2 月 1 日（週日）。
 
+文件命名格式为完整日期范围：`Week_26 Jan ~ 01 Feb, 2026.md`
+
 ---
 
 ## 📚 参考文档
@@ -406,8 +434,16 @@ Zerocap 文章标题日期减 7 天 = 实际涵盖週的週一。例如标题 "2
 
 ## 📄 版本历史
 
-- **v2.1** (2026-03-04): 新增 `push` skill
+- **v2.1** (2026-03-04): 自动化强化 + 工具补全
   - 新增 `/push`：一键推送本地变更到 GitHub，支持自动/手动 commit message
+  - `monthly-report-prepare` 新增自动触发 `fetch-typus-data` 和 `fetch-weekly-references`
+  - `monthly-report-generate` 新增自动触发 `fetch-market-prices`
+  - `weekly-report-prepare` 新增自动触发价格/市场参考抓取、生成 30D 绩效图表（PNG）
+  - `weekly-report-generate` 新增自动触发 `weekly-report-prepare` 和 `fetch-weekly-references`
+  - `fetch-sentio-data` 新增 Q11（iTLP-TYPUS TVL）
+  - 新增 `data-sources/editorial-guidelines.md`（编辑规范）
+  - Weekly References 文件命名更新为完整日期范围格式
+  - 输出目录调整：`outputs/drafts/` + `outputs/final/` → `outputs/monthly/draft/` + `outputs/monthly/final/`
 
 - **v2.0** (2026-02-28): 新增週报功能
   - 新增 `fetch-sentio-data`：从 Sentio API 抓取链上数据（10 个 Query）
