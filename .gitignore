@@ -1,0 +1,7 @@
+# API Keys & Secrets
+.api-key
+*.api-key
+
+# Environment
+.env
+.env.*
