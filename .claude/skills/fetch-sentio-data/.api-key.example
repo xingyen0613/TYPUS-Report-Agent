@@ -1,0 +1,4 @@
+# Sentio API Key
+# 設定方式：把這個檔案複製並重新命名為 .api-key，然後填入你的 Key
+
+YOUR_SENTIO_API_KEY_HERE
