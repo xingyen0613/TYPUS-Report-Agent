@@ -480,6 +480,8 @@ Follow us: https://x.com/TypusFinance
 5 條推文結構：
 
 ### Hook（無編號）
+- 第一行：`Typus TLP Weekly Report | [Month DD, YYYY]`（當週週一日期）
+- 空一行後接內容
 - 帶 emoji，對比統計（如 LP Return vs Trader PnL）
 - 吸引點擊的一句話 + 引導閱讀
 
@@ -570,6 +572,8 @@ Follow us: https://x.com/TypusFinance
 
 ## Hook
 
+Typus TLP Weekly Report | [Month DD, YYYY]
+
 [引子文本]
 
 ## 1/4 — Market & Volume
@@ -588,6 +592,11 @@ Follow us: https://x.com/TypusFinance
 
 [第四條推文]
 ```
+
+**注意**：
+- Hook 第一行為報告標題（格式：`Typus TLP Weekly Report | [Month DD, YYYY]`，日期為當週週一）
+- 標題與正文之間空一行
+- 每個 `##` 分隔符號獨立一行，前後各空一行
 
 ### 完成提示
 
