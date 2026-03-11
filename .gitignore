@@ -12,3 +12,4 @@
 
 # Git skill cross-session pending commits (ephemeral, not committed)
 .claude/skills/git/pending-commits.md
+node_modules/

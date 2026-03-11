@@ -25,13 +25,12 @@
 ---
 
 ### 方向 I：各平台文章發表流程自動化
-**Medium（已實作 2026-03-11）**：GitHub Pages + Import 流程
-- `.github/workflows/pages.yml`：push to main 自動部署靜態網站
-- `/convert-report-format`：HTML 輸出含 OG meta tags + 30D PNG 嵌入
-- `/publish-medium`：顯示 GitHub Pages URL + Medium import 步驟
-- 流程：`/convert-report-format` → `/git push` → 貼 URL 到 `medium.com/p/import`
+**Medium（已實作 2026-03-11）**：Playwright 直接建立草稿
+- `.claude/skills/publish-medium/import-to-medium.js`：Playwright 腳本，自動登入 + 建立草稿
+- Session cookies 儲存於 `~/.config/typus-medium-session.json`（repo 外，不受 git 追蹤）
+- 流程：`/convert-report-format` → `/publish-medium`（自動開啟 Chromium，貼入內容，回傳草稿 URL）
 
-**X（待實作）**：見 `docs/x-automation-plan.md`
+**X（待實作）**：
 - 短期維持手動；中期評估 X API Basic tier；長期建立 `/post-x-threads` skill
 
 ---

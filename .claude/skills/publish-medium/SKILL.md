@@ -1,13 +1,13 @@
 ---
 name: publish-medium
-description: 顯示最新 HTML 的 GitHub Pages URL，供貼到 Medium import 頁面建立草稿
+description: 使用 Playwright 自動在 Medium 建立草稿（直接貼入內容，無需 GitHub Pages）
 user-invocable: true
 allowed-tools: Glob, Bash
 ---
 
-# Medium Import 輔助工具
+# Medium 自動草稿建立工具
 
-找到最新的 `*-medium-version.html`，計算對應的 GitHub Pages URL，供用戶一鍵開啟 Medium import 建立草稿。
+使用 Playwright 自動開啟 Medium 編輯器，貼入最新 `*-medium-version.html` 的標題與內文，建立草稿。
 
 ---
 
@@ -15,50 +15,59 @@ allowed-tools: Glob, Bash
 
 ### 第一步：找到最新 HTML
 
-搜尋 `outputs/` 下所有 `*-medium-version.html`，取修改時間最新者。
+確認 `outputs/` 下有 `*-medium-version.html`：
 
 ```bash
 ls -t outputs/weekly/final/*-medium-version.html outputs/monthly/final/*-medium-version.html 2>/dev/null | head -1
 ```
 
-### 第二步：計算 GitHub Pages URL
+若無結果，提示用戶先執行 `/convert-report-format`。
 
-URL 格式：
-```
-https://xingyen0613.github.io/TYPUS-Report-Agent/{相對路徑}
+### 第二步：執行 Playwright 腳本
+
+```bash
+node .claude/skills/publish-medium/import-to-medium.js
 ```
 
-例：
-- `outputs/weekly/final/week-1-march-2026-medium-version.html`
-  → `https://xingyen0613.github.io/TYPUS-Report-Agent/outputs/weekly/final/week-1-march-2026-medium-version.html`
-- `outputs/monthly/final/february-2026-medium-version.html`
-  → `https://xingyen0613.github.io/TYPUS-Report-Agent/outputs/monthly/final/february-2026-medium-version.html`
+**首次執行（session 不存在）**：
+- 自動開啟 Chromium 到 Medium 登入頁
+- 等待用戶手動完成登入
+- 儲存 session 至 `~/.config/typus-medium-session.json`
+- 提示用戶重新執行
+
+**正常執行（session 存在）**：
+- 載入已儲存的 session cookies
+- 導航到 `https://medium.com/new-story`
+- 自動填入標題，貼上內文 HTML
+- 等待 Medium 自動儲存草稿
+- 回傳草稿 URL
 
 ### 第三步：顯示結果
 
-輸出以下訊息（直接顯示，供用戶複製）：
+腳本執行完成後，顯示回傳的草稿 URL，例如：
 
 ```
-📄 最新 HTML：outputs/weekly/final/week-1-march-2026-medium-version.html
+✅ 草稿已建立！
+🔗 草稿 URL：https://medium.com/p/xxxxxx/edit
 
-🌐 GitHub Pages URL：
-https://xingyen0613.github.io/TYPUS-Report-Agent/outputs/weekly/final/week-1-march-2026-medium-version.html
-
-📋 Medium Import 步驟：
-1. 確認已執行 /git push（GitHub Pages 部署需 ~1 分鐘）
-2. 開啟：https://medium.com/p/import
-3. 貼上上方 URL → 點 Import
-4. Import 後為草稿，手動完成：加 tags、選封面圖、點 Publish
-
-💡 Tips：
-- Import 自動設定 canonical URL，保護 SEO ✅
-- 若圖片未顯示，等待 GitHub Pages 部署完成後再 import
+📋 下一步：
+  1. 開啟草稿確認內容
+  2. 加 tags、選封面圖
+  3. 點 Publish
 ```
+
+---
+
+## 安全性說明
+
+- Session cookies 儲存於 `~/.config/typus-medium-session.json`（**repo 目錄外**）
+- 不受 git 追蹤，不會意外上傳
+- 此 JSON 含 Medium 登入憑證，請勿分享或上傳至任何地方
 
 ---
 
 ## 前置條件
 
-執行此 skill 前，請確認：
-1. 已執行 `/convert-report-format` 生成 HTML
-2. 已執行 `/git push` 將 HTML 推上 GitHub（Pages 部署約需 1 分鐘）
+1. 已安裝 Node.js
+2. 已安裝 Playwright：`npm install playwright` 或 `npx playwright install chromium`
+3. 已執行 `/convert-report-format` 生成 `*-medium-version.html`
