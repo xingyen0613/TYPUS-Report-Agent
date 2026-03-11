@@ -25,7 +25,14 @@
 ---
 
 ### 方向 I：各平台文章發表流程自動化
-自動化發表至 Medium、X 等平台的流程
+**Medium（已實作 2026-03-11）**：GitHub Pages + Import 流程
+- `.github/workflows/pages.yml`：push to main 自動部署靜態網站
+- `/convert-report-format`：HTML 輸出含 OG meta tags + 30D PNG 嵌入
+- `/publish-medium`：顯示 GitHub Pages URL + Medium import 步驟
+- 流程：`/convert-report-format` → `/git push` → 貼 URL 到 `medium.com/p/import`
+
+**X（待實作）**：見 `docs/x-automation-plan.md`
+- 短期維持手動；中期評估 X API Basic tier；長期建立 `/post-x-threads` skill
 
 ---
 
@@ -77,4 +84,4 @@
 
 ---
 
-*最後更新：2026-03-03*
+*最後更新：2026-03-11*
