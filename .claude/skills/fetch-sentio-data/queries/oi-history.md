@@ -182,16 +182,26 @@ filled AS (
 SELECT
     hour,
     sum(filled_OI) as Total,
-    MAXIf(filled_OI, base_token = 'BTC') AS BTC,
-    MAXIf(filled_OI, base_token = 'ETH') AS ETH,
-    MAXIf(filled_OI, base_token = 'SOL') AS SOL,
     MAXIf(filled_OI, base_token = 'SUI') AS SUI,
-    MAXIf(filled_OI, base_token = 'DEEP') AS DEEP,
     MAXIf(filled_OI, base_token = 'WAL') AS WAL,
+    MAXIf(filled_OI, base_token = 'DEEP') AS DEEP,
+    MAXIf(filled_OI, base_token = 'BTC') AS BTC,
+    MAXIf(filled_OI, base_token = 'TYPUS') AS TYPUS,
+    MAXIf(filled_OI, base_token = 'ETH') AS ETH,
+    MAXIf(filled_OI, base_token = 'SPYX') AS SPYX,
+    MAXIf(filled_OI, base_token = 'QQQX') AS QQQX,
+    MAXIf(filled_OI, base_token = 'NVDAX') AS NVDAX,
     MAXIf(filled_OI, base_token = 'APT') AS APT,
+    MAXIf(filled_OI, base_token = 'SOL') AS SOL,
+    MAXIf(filled_OI, base_token = 'JPY') AS JPY,
+    MAXIf(filled_OI, base_token = 'XAG') AS XAG,
     MAXIf(filled_OI, base_token = 'XRP') AS XRP,
     MAXIf(filled_OI, base_token = 'HYPE') AS HYPE,
-    MAXIf(filled_OI, base_token = 'DOGE') AS DOGE
+    MAXIf(filled_OI, base_token = 'DOGE') AS DOGE,
+    MAXIf(filled_OI, base_token = 'TSLAX') AS TSLAX,
+    MAXIf(filled_OI, base_token = 'XAU') AS XAU,
+    MAXIf(filled_OI, base_token = 'USOIL') AS USOIL,
+    MAXIf(filled_OI, base_token = 'BNB') AS BNB
 FROM filled
 WHERE hour >= toDateTime('{{START_TIME}}', 'UTC') AND hour < toDateTime('{{END_TIME}}', 'UTC')
 GROUP BY hour
@@ -219,22 +229,32 @@ ORDER BY hour desc;
 
 ## 回傳欄位
 
-| 欄位 | 類型 | 單位 | 說明 | 週報指標 |
-|------|------|------|------|---------|
-| `hour` | TIME | — | 小時時間戳（ISO 8601） | 時間 |
-| `Total` | NUMBER | USD | 全平台總 OI | Total OI (hourly) |
-| `BTC` | NUMBER | USD | BTC OI | BTC OI |
-| `ETH` | NUMBER | USD | ETH OI | ETH OI |
-| `SOL` | NUMBER | USD | SOL OI | SOL OI |
-| `SUI` | NUMBER | USD | SUI OI | SUI OI |
-| `DEEP` | NUMBER | USD | DEEP OI | DEEP OI |
-| `WAL` | NUMBER | USD | WAL OI | WAL OI |
-| `APT` | NUMBER | USD | APT OI | APT OI |
-| `XRP` | NUMBER | USD | XRP OI | XRP OI |
-| `HYPE` | NUMBER | USD | HYPE OI | HYPE OI |
-| `DOGE` | NUMBER | USD | DOGE OI | DOGE OI |
+| 欄位 | 類型 | 單位 | 說明 |
+|------|------|------|------|
+| `hour` | TIME | — | 小時時間戳（ISO 8601） |
+| `Total` | NUMBER | USD | 全平台總 OI |
+| `SUI` | NUMBER | USD | SUI OI |
+| `WAL` | NUMBER | USD | WAL OI |
+| `DEEP` | NUMBER | USD | DEEP OI |
+| `BTC` | NUMBER | USD | BTC OI |
+| `TYPUS` | NUMBER | USD | TYPUS OI |
+| `ETH` | NUMBER | USD | ETH OI |
+| `SPYX` | NUMBER | USD | SPYX OI |
+| `QQQX` | NUMBER | USD | QQQX OI |
+| `NVDAX` | NUMBER | USD | NVDAX OI |
+| `APT` | NUMBER | USD | APT OI |
+| `SOL` | NUMBER | USD | SOL OI |
+| `JPY` | NUMBER | USD | JPY OI |
+| `XAG` | NUMBER | USD | XAG OI |
+| `XRP` | NUMBER | USD | XRP OI（歷史存量） |
+| `HYPE` | NUMBER | USD | HYPE OI（歷史存量） |
+| `DOGE` | NUMBER | USD | DOGE OI（歷史存量） |
+| `TSLAX` | NUMBER | USD | TSLAX OI |
+| `XAU` | NUMBER | USD | XAU OI |
+| `USOIL` | NUMBER | USD | USOIL OI |
+| `BNB` | NUMBER | USD | BNB OI |
 
-> 幣種欄位為動態的——如果某幣種在該時段無 OI，值為 null 或 0。未來新增交易對時需在 SQL 的最終 SELECT 中加入對應欄位。
+> 如果某幣種在該時段無 OI，值為 null 或 0。新增交易對時需在 SQL 的最終 SELECT 中加入對應 `MAXIf` 欄位。
 
 ---
 

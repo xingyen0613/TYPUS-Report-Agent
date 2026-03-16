@@ -108,10 +108,12 @@ with open('.claude/skills/fetch-sentio-data/.api-key') as f:
 | 9 | `queries/mtlp-tvl-composition.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
 | 10 | `queries/oi-history.md` | SQL | **SQL 字串替換**：`{{START_TIME}}`/`{{END_TIME}}` | DEFAULT |
 | 11 | `queries/itlp-tvl.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
+| 12 | `queries/daily-volume.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
+| 13 | `queries/daily-fees.md` | SQL | **SQL 字串替換**：`{{START_TIME}}`/`{{END_TIME}}` | DEFAULT |
 
 #### API 呼叫範本
 
-**Metrics endpoint**（Query 1, 3, 4, 7, 9, 11）：
+**Metrics endpoint**（Query 1, 3, 4, 7, 9, 11, 12）：
 ```python
 import json, urllib.request
 
@@ -140,7 +142,7 @@ payload["sqlQuery"]["variables"]["startTime"] = f"toDateTime('{sql_start}', 'UTC
 payload["sqlQuery"]["variables"]["endTime"] = f"toDateTime('{sql_end}', 'UTC')"
 ```
 
-**Query 5, 6, 10**（daily-traders-pnl, daily-liquidation-volume, oi-history）：替換 SQL WHERE 子句中的日期
+**Query 5, 6, 10, 13**（daily-traders-pnl, daily-liquidation-volume, oi-history, daily-fees）：替換 SQL WHERE 子句中的日期
 ```python
 sql = sql.replace("{{START_TIME}}", sql_start)
 sql = sql.replace("{{END_TIME}}", sql_end)
@@ -180,6 +182,20 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 
 ### iTLP-TYPUS
 - 週開盤: $[value] | 週收盤: $[value] | 變化: [+/-X.XX%]
+
+### Daily Price Snapshot（每日收盤價，取每日最後一筆）
+
+| Day | Date | mTLP | iTLP-TYPUS |
+|-----|------|------|------------|
+| Mon | [date] | $[val] | $[val] |
+| Tue | [date] | $[val] | $[val] |
+| Wed | [date] | $[val] | $[val] |
+| Thu | [date] | $[val] | $[val] |
+| Fri | [date] | $[val] | $[val] |
+| Sat | [date] | $[val] | $[val] |
+| Sun | [date] | $[val] | $[val] |
+
+> 從 Q1 回傳的小時序列（step=3600）中，按日分組取最後一筆 value 作為當日收盤價。
 
 ---
 
@@ -277,6 +293,20 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 | BTC | $[val] | $[val] | $[val] | [X%] |
 | ... | ... | ... | ... | ... |
 
+### Daily OI Snapshot（每日 OI 快照，取每日 23:00 UTC）
+
+| Date | Total | SUI | WAL | DEEP | BTC | TYPUS | ETH | SPYX | QQQX | NVDAX | APT | SOL | JPY | XAG | XRP | HYPE | DOGE | TSLAX | XAU | USOIL | BNB |
+|------|-------|-----|-----|------|-----|-------|-----|------|------|-------|-----|-----|-----|-----|-----|------|------|-------|-----|-------|-----|
+| 2026-02-02 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-03 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-04 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-05 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-06 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-07 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+| 2026-02-08 | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] | $[v] |
+
+> 每日快照取該日 23:00 UTC（UTC+8 = 07:00 隔日）的 OI 值；若該小時無資料，取最近一筆向前填補值。
+
 ---
 
 ## 11. iTLP-TYPUS TVL（iTLP 資金池總鎖定價值）
@@ -285,6 +315,38 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 - Total iTLP TVL: $[val]
 
 > iTLP-TYPUS 為 100% USDC 組成，TVL 直接反映資金規模。
+
+---
+
+## 12. Daily Total Volume（每日總交易量）
+
+| Day | Date | Volume (USD) |
+|-----|------|--------------|
+| Mon | [date] | $[val] |
+| Tue | [date] | $[val] |
+| Wed | [date] | $[val] |
+| Thu | [date] | $[val] |
+| Fri | [date] | $[val] |
+| Sat | [date] | $[val] |
+| Sun | [date] | $[val] |
+
+**週總交易量**: $[sum]
+
+---
+
+## 13. Daily Fees（每日手續費明細）
+
+| Day | Date | TLP Fee (USD) | Protocol Fee (USD) |
+|-----|------|---------------|-------------------|
+| Mon | [date] | $[val] | $[val] |
+| Tue | [date] | $[val] | $[val] |
+| Wed | [date] | $[val] | $[val] |
+| Thu | [date] | $[val] | $[val] |
+| Fri | [date] | $[val] | $[val] |
+| Sat | [date] | $[val] | $[val] |
+| Sun | [date] | $[val] | $[val] |
+
+**週總 TLP Fee**: $[sum] | **週總 Protocol Fee**: $[sum]
 
 ---
 
@@ -317,6 +379,8 @@ sql = sql.replace("{{END_TIME}}", sql_end)
    - Q9 mTLP Composition: SUI [X%] / USDC [X%]
    - Q10 OI History: 週初 $[start_oi] → 週末 $[end_oi] ([+/-X%])
    - Q11 iTLP TVL: $[val]
+   - Q12 Daily Volume: 週一 $[mon_vol] ~ 週日 $[sun_vol]，週總 $[total_vol]
+   - Q13 Daily Fees: TLP Fee 週總 $[val]，Protocol Fee 週總 $[val]
 
 💡 下一步：
    運行 /weekly-report-generate 開始撰寫週報

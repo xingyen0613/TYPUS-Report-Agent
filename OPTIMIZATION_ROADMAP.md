@@ -14,8 +14,19 @@
 
 ---
 
-### 方向 G：圖片生成
-為週報自動生成配圖（數據圖表、封面圖等）
+### 方向 G：圖片生成自動化
+**已完成（2026-03-16）**：所有圖表均已自動生成並上傳
+
+目前進度：
+- ✅ `{basename}-30d-performance.png`：由 `weekly-report-prepare` Step 4.5 透過 Sentio API 生成（30 天累積回報走勢圖）
+- ✅ `{basename}-tlp-price.png`：由 `generate_charts.py` 生成，顯示 ~4 週 TLP 價格歷史（透過 Sentio API fallback 補齊前 3 週，本地 MD 缺少歷史時自動抓取）
+- ✅ `{basename}-fee-breakdown.png`：由 `generate_charts.py` 生成
+- ✅ `{basename}-oi-distribution.png`：由 `generate_charts.py` 生成（OI 分布含多空比）
+- ✅ 其他圖表（Volume、DAU、PnL、Liquidation、OI History）：由 `generate_charts.py` 生成
+- ✅ `/publish-medium` 自動掃描 `outputs/weekly/final/` 下所有對應 PNG，上傳至 Medium CDN 並嵌入草稿
+
+**已知限制**：
+- TLP Price 圖表 stats 欄顯示的週回報（Mon 日收盤 → Sun 日收盤）與 Data Brief 的回報（Mon 00:00 開盤 → Sun 最後小時收盤）有輕微差異，屬粒度差異，非 Bug
 
 ---
 
@@ -25,10 +36,11 @@
 ---
 
 ### 方向 I：各平台文章發表流程自動化
-**Medium（已實作 2026-03-11）**：Playwright 直接建立草稿
-- `.claude/skills/publish-medium/import-to-medium.js`：Playwright 腳本，自動登入 + 建立草稿
+**Medium（已完整實作 2026-03-16）**：Playwright 直接建立草稿 + 自動上傳所有圖片
+- `.claude/skills/publish-medium/import-to-medium.js`：Playwright 腳本，自動登入 + 建立草稿 + 上傳所有 PNG
 - Session cookies 儲存於 `~/.config/typus-medium-session.json`（repo 外，不受 git 追蹤）
-- 流程：`/convert-report-format` → `/publish-medium`（自動開啟 Chromium，貼入內容，回傳草稿 URL）
+- 流程：`/convert-report-format` → `/publish-medium`（自動掃描所有對應 PNG，上傳至 CDN 並嵌入草稿，回傳草稿 URL）
+- 所有圖表佔位符（30D、TLP Price、Fee Breakdown、OI Distribution 等）均已自動替換為 CDN URL
 
 **X（待實作）**：
 - 短期維持手動；中期評估 X API Basic tier；長期建立 `/post-x-threads` skill
@@ -83,4 +95,4 @@
 
 ---
 
-*最後更新：2026-03-11*
+*最後更新：2026-03-16*

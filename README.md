@@ -34,7 +34,7 @@ typus-report/
 
 ## 🎯 全部 Skills 一览
 
-本项目共 10 个 Skills，分为数据抓取、月报流程、週报流程、工具类四类（`/git` 含两个子命令）。
+本项目共 12 个 Skills，分为数据抓取、月报流程、週报流程、发布、工具类五类（`/git` 含多个子命令）。
 
 ---
 
@@ -79,7 +79,7 @@ typus-report/
 #### `/fetch-sentio-data`
 **功能**：从 Sentio 平台 API 抓取週报所需的 Typus 链上数据
 
-**用途**：週报的核心数据来源，自动执行 11 个查询
+**用途**：週报的核心数据来源，自动执行 13 个查询
 
 **执行内容**：
 - Q1 TLP 价格走势（mTLP & iTLP-TYPUS）
@@ -93,6 +93,8 @@ typus-report/
 - Q9 mTLP 资产组成（SUI/USDC 权重）
 - Q10 OI 历史变化
 - Q11 iTLP-TYPUS TVL
+- Q12 每日总交易量
+- Q13 每日手续费明细
 - 保存为结构化 Markdown：`data-sources/sentio-data/week-{N}-{month}-{year}.md`
 
 **示例**：
@@ -198,7 +200,8 @@ typus-report/
 - 自动补全缺失的历史週数据（用于 30D 绩效计算）
 - 计算衍生指标（TLP 回报归因 / Alpha / 30D 绩效 / Sharpe Ratio 等）
 - 标记历史趋势（连续趋势、ATH、异常值）
-- **生成 30D 绩效图表**（PNG，保存至 `outputs/weekly/final/`）
+- **生成 30D 绩效图表**（PNG，透过 Sentio + CoinGecko API 直接抓取，保存至 `outputs/weekly/final/`）
+- **生成週报图表组**（PNG，由 `generate_charts.py` 生成：TLP Price ≈ 4 週历史含 API fallback、Fee Breakdown、OI Distribution 等）
 - 产出结构化 Weekly Data Brief（`data-sources/sentio-data/week-{N}-{month}-{year}-brief.md`）
 
 **示例**：
@@ -226,6 +229,30 @@ typus-report/
 **示例**：
 ```bash
 /weekly-report-generate
+```
+
+---
+
+### 发布类
+
+#### `/publish-medium`
+**功能**：使用 Playwright 自动在 Medium 建立草稿，并自动上传图片至 Medium CDN
+
+**用途**：替代手动复制贴上，一键建立草稿
+
+**执行内容**：
+- 读取最新 `*-medium-version.html`（週报或月报）
+- 扫描 `outputs/weekly/final/` 下所有对应 PNG，逐一上传至 Medium CDN
+- 图片占位符（`[Image: ...]`）自动替换为 CDN URL，全程无需手动干预
+- 自动填入标题、贴上内文（含嵌入图片），等待 Medium 自动储存
+- 回传草稿 URL
+- Session cookies 储存于 `~/.config/typus-medium-session.json`（repo 外，不受 git 追踪）
+
+**前置条件**：已执行 `/convert-report-format` 产出 `*-medium-version.html`
+
+**示例**：
+```bash
+/publish-medium
 ```
 
 ---
@@ -283,7 +310,9 @@ typus-report/
 3. /weekly-report-generate     ← 生成週报
                                     ├── 自动触发 /weekly-report-prepare（若 Brief 缺失）
                                     └── 自动触发 /fetch-weekly-references（若市场参考缺失）
-4. /git push                   ← 推送到 GitHub（可选）
+4. /convert-report-format      ← 转换为 HTML（发布前必须）
+5. /publish-medium             ← 自动建立 Medium 草稿 + 上传图片（手动发布）
+6. /git push                   ← 推送到 GitHub（可选）
 ```
 
 ---
@@ -391,6 +420,13 @@ Skills 安装在本项目目录下（本地 Skills，优先级高于全局 Skill
 │   └── SKILL.md
 ├── weekly-report-generate/
 │   └── SKILL.md
+├── generate-charts/
+│   ├── SKILL.md
+│   └── generate_charts.py     # 图表生成脚本（TLP Price 4W / Fee / OI Distribution 等）
+├── publish-medium/
+│   ├── SKILL.md
+│   ├── import-to-medium.js    # Playwright 自动化脚本
+│   └── intercept-upload.js    # 调试用：捕获上传 API
 └── git/
     ├── SKILL.md
     └── pending-commits.md     # 跨 session 暂存（已加入 .gitignore）
@@ -441,6 +477,15 @@ Zerocap 文章标题日期减 7 天 = 实际涵盖週的週一。例如标题 "2
 ---
 
 ## 📄 版本历史
+
+- **v2.4** (2026-03-16): 图表自动化完整实现
+  - `generate_charts.py` TLP Price 图表改为显示 ~4 週历史数据：优先读取本地 MD，缺失时透过 Sentio API fallback 自动补抓前 3 週日线数据
+  - `/publish-medium` 自动上传所有 PNG 图表（不再限于 30D 图），草稿创建后所有图片均已嵌入，无需手动处理
+  - `fetch-sentio-data` 新增 Q12（每日总交易量）和 Q13（每日手续费明细）
+
+- **v2.3** (2026-03-12): 新增 Medium 自动发布
+  - 新增 `/publish-medium`：Playwright 自动建立 Medium 草稿，自动上传 30D 图表至 CDN
+  - 週报工作流程新增步骤 4（`/convert-report-format`）+ 步骤 5（`/publish-medium`）
 
 - **v2.2** (2026-03-04): 統一 git 操作
   - 新增 `/git`：取代 `/push`，支援 `/git commit`（跨 session 暫存）和 `/git push`（合併所有紀錄推送）

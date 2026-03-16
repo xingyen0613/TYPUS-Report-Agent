@@ -10,7 +10,8 @@
 | `/fetch-market-prices` | 获取加密货币历史价格（月度或週度） | 月报 / 週报 |
 | `/monthly-report-prepare` | 验证月报数据完整性 | 月报 |
 | `/monthly-report-generate` | 生成月报 + 副标题 + X Threads | 月报 |
-| `/convert-report-format` | 将月报转换为 HTML 格式 | 月报 |
+| `/convert-report-format` | 将报告转换为 HTML 格式（发布前必须） | 月报 / 週报 |
+| `/publish-medium` | 自动建立 Medium 草稿 + 上传图片 | 月报 / 週报 |
 | `/weekly-report-prepare` | 验证週报数据、计算指标、产出 Data Brief | 週报 |
 | `/weekly-report-generate` | 生成週报 + 副标题 + X Threads | 週报 |
 | `/git commit` | 分析当前变更并记录到跨 session 暂存（pending-commits） | 通用 |
@@ -101,6 +102,7 @@ AI 会询问：
 - TLP 回报归因（Alpha / Fee / Counterparty / Basket）
 - 30D 绩效 + Sharpe Ratio
 - **30D 绩效图表**（PNG）→ `outputs/weekly/final/week-[N]-[month]-[year]-30d-performance.png`
+- **週报所有图表**（PNG，由 `generate_charts.py` 生成）→ TLP Price（~4 週历史）、Fee Breakdown、OI Distribution 等
 - 结构化 Weekly Data Brief → `data-sources/sentio-data/week-[N]-[month]-[year]-brief.md`
 
 如数据有误，可直接告知 AI 修正。
@@ -120,6 +122,34 @@ AI 会：
 4. 撰写草稿（600-800 字 Medium 文章，无表格）→ `outputs/weekly/draft/...`
 5. 等待你审阅，根据反馈修改
 6. 确认后产出最终版本 + 副标题 + X Threads → `outputs/weekly/final/...`
+
+---
+
+### 步骤 4：转换格式
+
+```bash
+/convert-report-format
+```
+
+将週报 Markdown 转换为 Medium 优化 HTML，输出至 `outputs/weekly/final/{basename}-medium-version.html`。
+
+---
+
+### 步骤 5：发布 Medium 草稿
+
+```bash
+/publish-medium
+```
+
+自动执行：
+1. 扫描 `outputs/weekly/final/` 下所有对应 PNG 图表
+2. 逐一上传至 Medium CDN，获取图片 URL
+3. 开启 Medium 编辑器，填入标题、贴上内文（图片占位符替换为 CDN URL）
+4. 等待 Medium 自动储存草稿，回传草稿 URL
+
+收到草稿 URL 后，手动开启确认内容 → 加 tags、选封面图 → 点 Publish。
+
+> **首次执行**：会自动开启 Chrome 到 Medium 登入页，完成登入后 session 储存至 `~/.config/typus-medium-session.json`，之后无需再次登入。
 
 ---
 

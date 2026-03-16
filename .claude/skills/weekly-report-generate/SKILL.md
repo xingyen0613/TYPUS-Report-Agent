@@ -287,7 +287,7 @@ Market Context → [LP / Trader 先行？] → 30-Day → [OI] → 收尾
 - 按幣種的交易量分佈（前 3 名即可，用散文/列點描述，不用表格）
 
 圖片標記：
-- `[Image: Weekly Volume Chart]`
+- `[Image: Daily Volume Chart]`
 - `[Image: DAU Chart]`
 
 ### 4. LP Performance（敘事型標題）
@@ -359,7 +359,7 @@ Market Context → [LP / Trader 先行？] → 30-Day → [OI] → 收尾
 
 圖片標記：
 - `[Image: OI History Chart]`
-- `[Image: OI Distribution]`
+- `[Image: OI Distribution Chart]`
 
 ### 8. 收尾段落（無標題）
 

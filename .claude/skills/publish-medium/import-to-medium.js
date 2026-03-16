@@ -61,26 +61,22 @@ function extractContent(htmlPath) {
   return { title, bodyHtml };
 }
 
-// 找對應的 30D performance PNG
-function findMatchingPng(htmlPath) {
+// 找對應的 PNG（依後綴名）
+function findMatchingPng(htmlPath, suffix) {
   const dir = path.dirname(htmlPath);
   const base = path.basename(htmlPath).replace('-medium-version.html', '');
-  const pngPath = path.join(dir, `${base}-30d-performance.png`);
+  const pngPath = path.join(dir, `${base}-${suffix}.png`);
   return fs.existsSync(pngPath) ? pngPath : null;
 }
 
 // 上傳 PNG 至 Medium CDN，回傳 CDN URL（失敗則回傳 null）
-// 使用獨立 tab + Medium 編輯器原生 UI 上傳（最可靠）
-async function uploadImageToMedium(context, pngPath) {
+// 在 uploadPage（throwaway 頁面）上傳，不影響 main editor 狀態
+// 每次上傳後圖片留在 uploadPage（不 undo），下次用 .last() 找最後的空段落
+async function uploadImageToMedium(uploadPage, pngPath) {
   console.log(`🌐 上傳圖片至 Medium CDN：${path.basename(pngPath)}`);
 
-  const uploadPage = await context.newPage();
-  await uploadPage.goto('https://medium.com/new-story', { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await uploadPage.waitForTimeout(3000);
-
-  // 攔截 /_/upload 回應取得 fileId
   let uploadedFileId = null;
-  uploadPage.on('response', async resp => {
+  const responseHandler = async resp => {
     if (!resp.url().includes('/_/upload')) return;
     try {
       const text = await resp.text();
@@ -91,11 +87,13 @@ async function uploadImageToMedium(context, pngPath) {
         uploadedFileId = parsed.payload?.value?.fileId || null;
       }
     } catch {}
-  });
+  };
+  uploadPage.on('response', responseHandler);
 
-  // 點 paragraph 讓 cursor 在 body
-  await uploadPage.waitForSelector('[data-testid="editorParagraphText"]', { timeout: 15000 });
-  await uploadPage.click('[data-testid="editorParagraphText"]');
+  // 用 .last() 找最後一個空段落（前幾張圖已插入後，每次都在最後面新增）
+  const para = uploadPage.locator('[data-testid="editorParagraphText"]').last();
+  await para.waitFor({ timeout: 10000 });
+  await para.click();
   await uploadPage.waitForTimeout(500);
 
   // 點 "+" 按鈕
@@ -104,7 +102,7 @@ async function uploadImageToMedium(context, pngPath) {
   await addBtn.click();
   await uploadPage.waitForTimeout(500);
 
-  // 點 "Add an image" 並攔截 file chooser
+  // 點 "Add an image" 並上傳檔案
   const [fileChooser] = await Promise.all([
     uploadPage.waitForEvent('filechooser', { timeout: 10000 }),
     uploadPage.click('button[aria-label="Add an image"]'),
@@ -112,13 +110,13 @@ async function uploadImageToMedium(context, pngPath) {
   await fileChooser.setFiles(pngPath);
   console.log(`   已選擇檔案，等待上傳完成...`);
 
-  // 等待 uploadedFileId 被設置（最多 30 秒）
+  // 等待 fileId（最多 30 秒）
   const deadline = Date.now() + 30000;
   while (!uploadedFileId && Date.now() < deadline) {
     await uploadPage.waitForTimeout(500);
   }
 
-  await uploadPage.close();
+  uploadPage.off('response', responseHandler);
 
   if (uploadedFileId) {
     const cdnUrl = `https://miro.medium.com/v2/resize:fit:1400/${uploadedFileId}`;
@@ -161,19 +159,53 @@ async function createDraft(htmlPath) {
   console.log(`📝 標題：${title}`);
 
   let bodyWithoutTitle = bodyHtml.replace(/<h1>[^<]*<\/h1>\s*/, '');
-  const pngPath = findMatchingPng(htmlPath);
+  const png30d         = findMatchingPng(htmlPath, '30d-performance');
+  const pngOiDist      = findMatchingPng(htmlPath, 'oi-distribution');
+  const pngDailyPnl    = findMatchingPng(htmlPath, 'daily-pnl');
+  const pngLiquidation = findMatchingPng(htmlPath, 'daily-liquidation');
+  const pngDau         = findMatchingPng(htmlPath, 'daily-dau');
+  const pngVolume      = findMatchingPng(htmlPath, 'daily-volume');
+  const pngOiHistory   = findMatchingPng(htmlPath, 'oi-history');
+  const pngTlpPrice    = findMatchingPng(htmlPath, 'tlp-price');
+  const pngFeeBreak    = findMatchingPng(htmlPath, 'fee-breakdown');
 
   const browser = await chromium.launch(LAUNCH_OPTS);
   const context = await browser.newContext({ storageState: SESSION_FILE });
 
-  // Tab 1：Medium 編輯器
-  const mediumPage = await context.newPage();
-  await mediumPage.goto('https://medium.com/new-story', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  // 圖片定義：placeholder 文字對應的 PNG 路徑（含舊格式 altPlaceholder 相容）
+  const uploads = [
+    { pngPath: png30d,         placeholder: '[Image: 30-Day Comparison Chart]'                                                      },
+    { pngPath: pngVolume,      placeholder: '[Image: Daily Volume Chart]',      altPlaceholder: '[Image: Weekly Volume Chart]'      },
+    { pngPath: pngDau,         placeholder: '[Image: DAU Chart]'                                                                    },
+    { pngPath: pngTlpPrice,    placeholder: '[Image: TLP Price Chart]'                                                              },
+    { pngPath: pngFeeBreak,    placeholder: '[Image: Fee Breakdown]'                                                                },
+    { pngPath: pngDailyPnl,    placeholder: '[Image: Daily PnL Chart]'                                                              },
+    { pngPath: pngLiquidation, placeholder: '[Image: Liquidation Chart]'                                                            },
+    { pngPath: pngOiHistory,   placeholder: '[Image: OI History Chart]'                                                             },
+    { pngPath: pngOiDist,      placeholder: '[Image: OI Distribution Chart]',   altPlaceholder: '[Image: OI Distribution]'         },
+  ];
 
-  // 等 editor 初始化
-  await mediumPage.waitForTimeout(3000);
-  await mediumPage.mouse.click(640, 400);
-  await mediumPage.waitForTimeout(3000);
+  // 包一層 body 讓瀏覽器正確渲染（圖片 placeholder 保留為文字，不替換）
+  fs.writeFileSync(TEMP_HTML, `<!DOCTYPE html><html><body>${bodyWithoutTitle}</body></html>`);
+
+  // ── Phase 1：建立 draft（乾淨的 mediumPage）──
+  console.log('📝 Phase 1：建立 Medium 草稿...');
+  const mediumPage = await context.newPage();
+  let editorReady = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await mediumPage.goto('https://medium.com/new-story', { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await mediumPage.waitForTimeout(8000);
+    const hasEditor = await mediumPage.locator('[data-testid="editorTitleParagraph"]').isVisible().catch(() => false);
+    if (hasEditor) { editorReady = true; break; }
+    console.log(`⚠️  Editor 未初始化（attempt ${attempt}/3），重試...`);
+    await mediumPage.waitForTimeout(5000);
+  }
+  if (!editorReady) {
+    await mediumPage.screenshot({ path: '/tmp/medium-debug.png' });
+    console.error(`⚠️  截圖已儲存至 /tmp/medium-debug.png（URL: ${mediumPage.url()}）`);
+    await browser.close();
+    process.exit(1);
+  }
 
   // 檢查是否被導向登入頁
   const currentUrl = mediumPage.url();
@@ -184,25 +216,10 @@ async function createDraft(htmlPath) {
     process.exit(1);
   }
 
-  // 先確認 editor 已載入並填入標題
-  await mediumPage.waitForSelector('[data-testid="editorTitleParagraph"]', { timeout: 30000 });
+  // 填入標題
   await mediumPage.click('[data-testid="editorTitleParagraph"]');
   await mediumPage.keyboard.type(title);
   console.log('✏️  標題已輸入');
-
-  // 上傳 PNG 至 Medium CDN（editor 確認後再上傳，走瀏覽器網路堆疊）
-  if (pngPath) {
-    const cdnUrl = await uploadImageToMedium(context, pngPath);
-    if (cdnUrl) {
-      bodyWithoutTitle = bodyWithoutTitle.replace(
-        '<p>[Image: 30-Day Comparison Chart]</p>',
-        `<figure><img src="${cdnUrl}" alt="30-Day Comparison Chart"></figure>`
-      );
-    }
-  }
-
-  // 包一層 body 讓瀏覽器正確渲染
-  fs.writeFileSync(TEMP_HTML, `<!DOCTYPE html><html><body>${bodyWithoutTitle}</body></html>`);
 
   // Tab 2：開臨時 HTML，全選複製
   console.log('📋 開臨時 tab 複製內文...');
@@ -237,6 +254,115 @@ async function createDraft(htmlPath) {
   // 清理臨時檔案
   try { fs.unlinkSync(TEMP_HTML); } catch {}
 
+  // ── Phase 2：用 editor UI 將各 placeholder 替換為真實圖片 ──
+  console.log('🖼️  Phase 2：插入圖片...');
+  const uploadedTexts = new Set(); // 記錄成功上傳的 foundTxt，用於後續 warning 過濾
+  for (const { pngPath, placeholder, altPlaceholder } of uploads) {
+    if (!pngPath) continue;
+
+    // 找 placeholder 文字（試主名稱與舊格式別名），記錄實際找到的文字
+    let foundTxt = null;
+    for (const txt of [placeholder, altPlaceholder].filter(Boolean)) {
+      const el = mediumPage.getByText(txt, { exact: false }).first();
+      if (await el.isVisible().catch(() => false)) { foundTxt = txt; break; }
+    }
+    if (!foundTxt) { console.log(`ℹ️  未找到佔位符，跳過：${placeholder}`); continue; }
+
+    const targetEl = mediumPage.getByText(foundTxt, { exact: false }).first();
+    console.log(`🌐 插入：${placeholder}`);
+    await targetEl.scrollIntoViewIfNeeded();
+    // 取得 placeholder 位置（Enter 後新空段落在其正下方）
+    const targetBox = await targetEl.boundingBox();
+    await targetEl.click();
+    await mediumPage.waitForTimeout(300);
+
+    // 在佔位符段落末尾按 Enter，建立全新空段落（空段落才能觸發 "+" 按鈕）
+    await mediumPage.keyboard.press('End');
+    await mediumPage.keyboard.press('Enter');
+    await mediumPage.waitForTimeout(500);
+
+    // 取得新空段落的 name 屬性，再用 Playwright native click 確保 "+" 按鈕出現在正確位置
+    const newParaName = await mediumPage.evaluate(() => {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      const node = sel.getRangeAt(0).startContainer;
+      const el = node.nodeType === 3 ? node.parentElement : node;
+      return el?.getAttribute('name') ?? null;
+    });
+    if (newParaName) {
+      await mediumPage.locator(`[name="${newParaName}"]`).click();
+    } else {
+      // fallback：點 placeholder 下方的下一個 paragraph
+      const allParas = mediumPage.locator('[data-testid="editorParagraphText"]');
+      const count = await allParas.count();
+      for (let i = 0; i < count; i++) {
+        const txt = await allParas.nth(i).textContent().catch(() => '');
+        if (txt?.includes(foundTxt.replace('[Image: ', '').replace(']', ''))) {
+          const nextTxt = await allParas.nth(i + 1).textContent().catch(() => 'x');
+          if (!nextTxt.trim()) await allParas.nth(i + 1).click();
+          break;
+        }
+      }
+    }
+    await mediumPage.waitForTimeout(500);
+
+    // 等待 "+" 按鈕並上傳圖片
+    let uploadedFileId = null;
+    const responseHandler = async resp => {
+      if (!resp.url().includes('/_/upload')) return;
+      try {
+        const text = await resp.text();
+        const start = text.search(/\{/);
+        if (start < 0) return;
+        const parsed = JSON.parse(text.substring(start));
+        if (parsed?.success) uploadedFileId = parsed.payload?.value?.fileId || null;
+      } catch {}
+    };
+    mediumPage.on('response', responseHandler);
+
+    const addBtn = mediumPage.locator('[data-testid="editorAddButton"]');
+    await addBtn.scrollIntoViewIfNeeded();
+    await addBtn.click();
+    await mediumPage.waitForTimeout(500);
+
+    const [fileChooser] = await Promise.all([
+      mediumPage.waitForEvent('filechooser', { timeout: 10000 }),
+      mediumPage.click('button[aria-label="Add an image"]'),
+    ]);
+    await fileChooser.setFiles(pngPath);
+    console.log(`   已選擇檔案，等待上傳...`);
+
+    const deadline = Date.now() + 30000;
+    while (!uploadedFileId && Date.now() < deadline) {
+      await mediumPage.waitForTimeout(500);
+    }
+    mediumPage.off('response', responseHandler);
+
+    if (uploadedFileId) {
+      uploadedTexts.add(foundTxt);
+      console.log(`✅ 圖片插入成功`);
+      // 直接用文字重新找佔位符段落並刪除（不依賴 ArrowUp 定位，避免游標位置不確定的問題）
+      await mediumPage.waitForTimeout(300);
+      // 按 ArrowDown 移離圖片，讓 image toolbar（highlightMenu）消失
+      await mediumPage.keyboard.press('ArrowDown');
+      await mediumPage.waitForTimeout(300);
+      const placeholderEl = mediumPage.getByText(foundTxt, { exact: false }).first();
+      if (await placeholderEl.isVisible().catch(() => false)) {
+        await placeholderEl.scrollIntoViewIfNeeded();
+        await placeholderEl.click({ clickCount: 3 }); // 三連擊選取整段文字
+        await mediumPage.waitForTimeout(200);
+        await mediumPage.keyboard.press('Backspace'); // 刪除佔位符文字（留空段落）
+        await mediumPage.waitForTimeout(300);
+      }
+    } else {
+      // 上傳失敗：移除剛建立的空段落，恢復原狀
+      await mediumPage.keyboard.press('Backspace');
+      console.warn(`⚠️  圖片插入失敗：${placeholder}`);
+    }
+    await mediumPage.waitForTimeout(500);
+  }
+  await mediumPage.waitForTimeout(3000); // 等 editor 自動儲存
+
   // 等待 URL 變為 /p/xxx/edit（Medium 自動儲存後）
   await mediumPage.waitForFunction(
     () => window.location.href.includes('/p/') && window.location.href.includes('/edit'),
@@ -248,8 +374,10 @@ async function createDraft(htmlPath) {
   console.log(`\n✅ 草稿已建立！`);
   console.log(`🔗 草稿 URL：${draftUrl}`);
 
-  // 掃描剩餘未替換的圖片佔位符
-  const remainingImages = [...bodyWithoutTitle.matchAll(/\[Image: ([^\]]+)\]/g)].map(m => m[0]);
+  // 掃描剩餘未替換的圖片佔位符（排除已成功上傳的）
+  const remainingImages = [...bodyWithoutTitle.matchAll(/\[Image: ([^\]]+)\]/g)]
+    .map(m => m[0])
+    .filter(imgTxt => !uploadedTexts.has(imgTxt));
   if (remainingImages.length > 0) {
     console.log(`\n⚠️  以下圖片需手動加入草稿：`);
     for (const img of remainingImages) {
@@ -286,9 +414,14 @@ async function createDraft(htmlPath) {
     process.exit(0);
   }
 
-  const htmlPath = findLatestHtml();
+  const fileArg = process.argv[2];
+  const htmlPath = fileArg ? path.resolve(fileArg) : findLatestHtml();
   if (!htmlPath) {
     console.error('❌ 找不到 *-medium-version.html，請先執行 /convert-report-format');
+    process.exit(1);
+  }
+  if (fileArg && !fs.existsSync(htmlPath)) {
+    console.error(`❌ 指定檔案不存在：${htmlPath}`);
     process.exit(1);
   }
 

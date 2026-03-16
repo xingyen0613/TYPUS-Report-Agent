@@ -643,6 +643,34 @@ print(f'Chart saved: {output_path}')
 
 ---
 
+## Step 4.6 — 生成週報圖表
+
+在 30 天走勢圖後，執行圖表生成腳本，產出其他週報所需圖表。
+
+```bash
+python3 .claude/skills/generate-charts/generate_charts.py \
+  --file data-sources/sentio-data/week-{N}-{month}-{year}.md
+```
+
+**目前生成的圖表**：
+- `week-{N}-{month}-{year}-oi-distribution.png`：OI Distribution by Token（含 Long/Short 多空比）
+
+**輸出路徑**：`outputs/weekly/final/`
+
+### 錯誤處理
+
+若腳本失敗（Python 不可用、matplotlib 缺失）：
+- 標記圖表生成失敗，繼續 Step 5
+- 用戶可手動執行 `/generate-charts` 補生成
+
+完成後顯示：
+```
+📊 週報圖表已生成
+   OI Distribution → outputs/weekly/final/week-[N]-[month]-[year]-oi-distribution.png
+```
+
+---
+
 ## Step 5 — 向使用者呈現摘要
 
 讀取已保存的 Data Brief 文件，向使用者輸出以下摘要：
