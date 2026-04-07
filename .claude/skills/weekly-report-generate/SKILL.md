@@ -499,13 +499,14 @@ Follow us: https://x.com/TypusFinance
 
 ### 4/4 — CTA
 - 總結一句話
-- Medium 連結占位符：`[Read the full report: LINK]`
+- Medium 連結占位符：`Read the full report: LINK`（純文字，無中括號）
 - `https://typus.finance/tlp/`
 
 ### X Threads 規則
 - 每條推文 200-280 字元
 - 敘事驅動、大局觀、最小化瑣碎數字
 - 風格：專業但有溫度，適合 Crypto Twitter 受眾
+- **格式**：純文字，無 `##` Markdown 標題；各條推文之間以 **4 個空行**分隔；`1/4`、`2/4` 等為純文字行，不加 `##`
 
 ---
 
@@ -570,33 +571,44 @@ Follow us: https://x.com/TypusFinance
 
 以下為完整的 5 條推文串（複製即用）
 
-## Hook
-
 Typus TLP Weekly Report | [Month DD, YYYY]
 
 [引子文本]
 
-## 1/4 — Market & Volume
+
+
+
+1/4 — Market & Volume
 
 [第一條推文]
 
-## 2/4 — LP Performance
+
+
+
+2/4 — LP Performance
 
 [第二條推文]
 
-## 3/4 — Trader Activity
+
+
+
+3/4 — Trader Activity
 
 [第三條推文]
 
-## 4/4 — CTA
+
+
+
+4/4 — CTA
 
 [第四條推文]
 ```
 
 **注意**：
-- Hook 第一行為報告標題（格式：`Typus TLP Weekly Report | [Month DD, YYYY]`，日期為當週週一）
-- 標題與正文之間空一行
-- 每個 `##` 分隔符號獨立一行，前後各空一行
+- 第一條（Hook）直接從報告標題開始，無 `## Hook` 標籤
+- `1/4`、`2/4`、`3/4`、`4/4` 為純文字行，不加 `##`
+- 各條推文之間以 **4 個空行**分隔
+- 無任何 Markdown 標題標記（`##`）
 
 ### 完成提示
 

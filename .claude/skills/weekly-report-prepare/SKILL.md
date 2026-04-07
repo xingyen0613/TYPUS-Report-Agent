@@ -470,175 +470,35 @@ for weeks_back in [3, 2, 1]:
 
 ## Step 4.5 — 生成 30 天走勢圖
 
-在 Data Brief 保存後，生成 mTLP / iTLP-TYPUS / SUI 三者的 30 天累積回報走勢圖（PNG）。
+在 Data Brief 保存後，呼叫 `generate_charts.py` 產出 30 天累積回報走勢圖（PNG）：
 
-### 數據獲取
-
-三條線**全部在圖表生成時直接從 API 即時抓取**，不依賴 weekly-prices 存檔：
-
-| 標的 | 數據源 | API |
-|------|--------|-----|
-| mTLP | Sentio Metrics | `tlp_price` index=0, step=14400 |
-| iTLP-TYPUS | Sentio Metrics | `tlp_price` index=1, step=14400 |
-| SUI | CoinGecko 免費 API | `/coins/sui/market_chart/range?from=...&to=...` (hourly, downsampled to 4h) |
-
-> **為何不用 weekly-prices 檔案拼接 SUI？**
-> weekly-prices 依賴 fetch-market-prices（需要 ToolSearch + mcp__massive__get_aggs），
-> 在 sub-skill context 中無法使用。且存檔可能有缺週，導致曲線斷線。
-> CoinGecko 免費 API 無需 key，一次即可取得完整 30 天日線，最簡單可靠。
-
-### 圖表生成（Bash 執行完整 Python 腳本）
-
-```python
-import json, urllib.request
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from datetime import datetime, timezone
-
-# ── 參數（由 Step 0 計算得出）───────────────────────────────────────
-# week_end_ts = unix_end（目標週結束 Unix timestamp，下週一 00:00 UTC）
-# week_number, month_name, year = 目標週週次、月份、年份
-chart_start_ts = week_end_ts - 30 * 86400
-
-# ── 1. mTLP / iTLP-TYPUS from Sentio ────────────────────────────────
-with open('.claude/skills/fetch-sentio-data/.api-key') as f:
-    API_KEY = f.read().strip()
-
-payload = {
-    "version": 9,
-    "timeRange": {"start": str(chart_start_ts), "end": str(week_end_ts),
-                  "step": 14400, "timezone": "UTC"},
-    "limit": 20,
-    "queries": [
-        {"metricsQuery": {"query": "tlp_price", "alias": "mTLP", "id": "a",
-                          "labelSelector": {"index": "0"}, "aggregate": None,
-                          "functions": [], "color": "", "disabled": False},
-         "dataSource": "METRICS", "sourceName": ""},
-        {"metricsQuery": {"query": "tlp_price", "alias": "iTLP-TYPUS", "id": "b",
-                          "labelSelector": {"index": "1"}, "aggregate": None,
-                          "functions": [], "color": "", "disabled": False},
-         "dataSource": "METRICS", "sourceName": ""}
-    ],
-    "formulas": [],
-    "cachePolicy": {"noCache": False, "cacheTtlSecs": 43200, "cacheRefreshTtlSecs": 1800}
-}
-req = urllib.request.Request(
-    "https://api.sentio.xyz/v1/insights/typus/typus_perp/query",
-    json.dumps(payload).encode('utf-8'),
-    headers={'Content-Type': 'application/json', 'api-key': API_KEY, 'User-Agent': 'Mozilla/5.0'}
-)
-with urllib.request.urlopen(req, timeout=60) as r:
-    tlp_data = json.loads(r.read())
-
-mtlp_vals = tlp_data['results'][0]['matrix']['samples'][0]['values']
-itlp_vals = tlp_data['results'][1]['matrix']['samples'][0]['values']
-mtlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in mtlp_vals]
-mtlp_prices = [float(v['value']) for v in mtlp_vals]
-itlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in itlp_vals]
-itlp_prices = [float(v['value']) for v in itlp_vals]
-
-# ── 2. SUI from CoinGecko free API（無需 key）───────────────────────
-cg_url = f'https://api.coingecko.com/api/v3/coins/sui/market_chart/range?vs_currency=usd&from={chart_start_ts}&to={week_end_ts}'
-req2 = urllib.request.Request(cg_url, headers={'User-Agent': 'Mozilla/5.0'})
-with urllib.request.urlopen(req2, timeout=15) as r2:
-    cg = json.loads(r2.read())
-
-# Downsample CoinGecko hourly → 4-hour candles (snap each ts to 4h bucket, keep last)
-from collections import OrderedDict
-sui_4h = OrderedDict()
-for ts_ms, price in cg['prices']:
-    bucket = (int(ts_ms / 1000) // 14400) * 14400  # floor to 4h boundary
-    sui_4h[bucket] = price  # overwrite → last price in bucket = close
-
-sui_dates  = [datetime.fromtimestamp(ts, tz=timezone.utc) for ts in sui_4h]
-sui_prices = list(sui_4h.values())
-
-# ── 3. 對齊起始日期（取三者共有的最晚首日）──────────────────────────
-common_start = max(mtlp_dates[0], itlp_dates[0], sui_dates[0])
-mtlp_d, mtlp_p = zip(*[(d,p) for d,p in zip(mtlp_dates, mtlp_prices) if d >= common_start])
-itlp_d, itlp_p = zip(*[(d,p) for d,p in zip(itlp_dates, itlp_prices) if d >= common_start])
-sui_d,  sui_p  = zip(*[(d,p) for d,p in zip(sui_dates,  sui_prices)  if d >= common_start])
-
-# ── 4. 標準化累積回報（起始 = 0%）───────────────────────────────────
-def norm(prices):
-    b = prices[0]
-    return [(p/b - 1)*100 for p in prices]
-
-mtlp_ret = norm(mtlp_p)
-itlp_ret = norm(itlp_p)
-sui_ret  = norm(sui_p)
-
-# ── 5. 繪圖 ─────────────────────────────────────────────────────────
-fig, ax = plt.subplots(figsize=(13, 6.5))
-fig.patch.set_facecolor('#1a1a2e')
-ax.set_facecolor('#1a1a2e')
-
-ax.plot(mtlp_d, mtlp_ret, color='#4a9eff', linewidth=2.2, label='mTLP',       zorder=3)
-ax.plot(itlp_d, itlp_ret, color='#00d4aa', linewidth=2.2, label='iTLP-TYPUS', zorder=3)
-ax.plot(sui_d,  sui_ret,  color='#ff8c42', linewidth=2.2, label='SUI',        zorder=3)
-
-ax.axhline(y=0, color='#888899', linewidth=1, linestyle='--', alpha=0.6)
-ax.grid(True, color='#2a2a4a', linewidth=0.6, alpha=0.8, zorder=1)
-
-ax.set_xlabel('Date', color='#aaaacc', fontsize=11)
-ax.set_ylabel('Cumulative Return (%)', color='#aaaacc', fontsize=11)
-ax.set_title(f'30-Day Performance — Week {week_number} {month_name.capitalize()} {year}',
-             color='#ffffff', fontsize=14, fontweight='bold', pad=14)
-
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-ax.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=0, interval=1))
-fig.autofmt_xdate(rotation=30)
-
-ax.tick_params(colors='#aaaacc', labelsize=9)
-for spine in ax.spines.values():
-    spine.set_edgecolor('#333355')
-
-# 在右側標注最終回報
-for dates, rets, color in [(mtlp_d, mtlp_ret, '#4a9eff'),
-                            (itlp_d, itlp_ret, '#00d4aa'),
-                            (sui_d,  sui_ret,  '#ff8c42')]:
-    ax.annotate(f'{rets[-1]:+.1f}%', xy=(dates[-1], rets[-1]),
-                xytext=(6, 0), textcoords='offset points',
-                color=color, fontsize=10, fontweight='bold', va='center')
-
-ax.legend(loc='lower left', framealpha=0.35, facecolor='#1a1a2e',
-          edgecolor='#444466', labelcolor='#ffffff', fontsize=10)
-
-fig.text(0.99, 0.01, 'mTLP/iTLP: Sentio API  |  SUI: CoinGecko',
-         ha='right', va='bottom', color='#555577', fontsize=8)
-
-plt.tight_layout()
-output_path = f'outputs/weekly/final/week-{week_number}-{month_name}-{year}-30d-performance.png'
-plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor=fig.get_facecolor())
-plt.close()
-print(f'Chart saved: {output_path}')
+```bash
+python3 .claude/skills/generate-charts/generate_charts.py \
+  --chart 30d \
+  --week-end-ts {unix_end} \
+  --week-number {week_number} \
+  --month {month_name} \
+  --year {year}
 ```
+
+> 其中 `unix_end`、`week_number`、`month_name`、`year` 均由 Step 0 計算得出。
+
+圖表使用與所有其他週報圖表相同的品牌風格（白底 `#FFFFFF`、Typus 藍 `#5056EA`、珊瑚紅 `#E8556D`、青綠 `#1BB68A`），數據直接從 Sentio API（mTLP/iTLP）和 CoinGecko（SUI）即時抓取。
 
 ### 圖表輸出
 
 - **路徑**：`outputs/weekly/final/week-{N}-{month}-{year}-30d-performance.png`
-- **解析度**：150 dpi，約 1950×975 px
+- **解析度**：100 dpi，1400×640 px
 
 ### 錯誤處理
 
-若 Sentio API 呼叫失敗：
+若腳本失敗（API 錯誤、matplotlib 缺失）：
 - 標記圖表生成失敗，在 Data Brief 記錄原因，不中斷 Step 5
-
-若 CoinGecko API 失敗（rate limit 或網路問題）：
-- 重試一次（等待 5 秒）
-- 仍失敗則繪製不含 SUI 的雙線圖，圖例標注「SUI 數據暫不可用」
-
-若 matplotlib 不可用：
-- 跳過圖表生成，在 Data Brief 標記「圖表生成失敗，請手動執行」
-- 不影響 Step 5 的文字摘要
 
 完成後顯示：
 ```
 📈 30 天走勢圖已生成
    路徑：outputs/weekly/final/week-[N]-[month]-[year]-30d-performance.png
-   數據點：mTLP [N] 個 / iTLP-TYPUS [N] 個 / SUI [N] 個
 ```
 
 ---

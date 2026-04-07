@@ -1,6 +1,6 @@
 ---
 name: fetch-sentio-data
-description: Fetch Typus Protocol on-chain data from Sentio platform for weekly report. Executes multiple queries to retrieve TLP prices, volume, fees, P&L, users, and position data.
+description: Fetch Typus Protocol on-chain data from Sentio platform for weekly report. Executes multiple queries to retrieve TLP prices, volume, fees, P&L, users, and position data. Also supports custom SQL queries based on table annotations.
 user-invocable: true
 allowed-tools: ToolSearch, Read, Write, Bash
 ---
@@ -14,6 +14,7 @@ allowed-tools: ToolSearch, Read, Write, Bash
 執行前請先讀取以下文件：
 - **Schema 總覽**：`.claude/skills/fetch-sentio-data/SENTIO-SCHEMA.md`
 - **各 Query 定義**：`.claude/skills/fetch-sentio-data/queries/*.md`
+- **Table 標註**：`.claude/skills/fetch-sentio-data/tables/*.md`（自訂查詢模式使用）
 
 ## 參數定義
 
@@ -412,3 +413,93 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 - Query 10（OI History）：`{{END_TIME}}` 同時作為事件上限（`event` CTE WHERE）和輸出範圍過濾（最終 SELECT WHERE），確保不包含目標週之後的數據
 - Query 11（iTLP TVL）：使用 `index: "1"`（iTLP 池）；Formula A disabled，Formula B（sum）enabled；回傳 results[0] = 總 TVL
 - 金額顯示保留 2 位小數，大數字用千分位分隔
+
+---
+
+## 自訂查詢模式（Custom Query Mode）
+
+當使用者的需求無法由上述 13 個預寫 Query 滿足時，進入自訂查詢模式。
+
+### 觸發條件
+
+使用者要求的數據不在現有 13 個 Query 的覆蓋範圍內，例如：
+- 「查某個地址的所有交易記錄」
+- 「統計上週 SUI 的開倉次數」
+- 「找出手續費最高的前 10 筆交易」
+- 「某個 position_id 的完整歷史」
+
+### 執行流程
+
+1. **理解需求**：確認使用者想查詢的數據、時間範圍、篩選條件
+2. **讀取 Table 標註**：根據需求讀取 `tables/` 目錄中相關表的 annotation 文件
+   - 先讀 `tables/_EVENT-FLOW.md` 確定需要哪些表
+   - 再讀對應的 `tables/<TableName>.md` 了解欄位定義
+   - 如有跨表需求，查看關聯鍵
+3. **參考查詢指南**：讀取 `tables/_QUERY-WRITING-GUIDE.md` 了解 Sentio SQL 規則
+4. **參考現有範例**（選用）：讀取 `query-examples/` 中的範例查詢
+5. **組合 SQL**：根據表定義中的欄位、計算公式和查詢模式，撰寫 SQL
+6. **向使用者確認**：展示 SQL 內容，確認後再執行
+7. **執行查詢**：使用 API Key + SQL endpoint 發送請求
+8. **格式化輸出**：將結果整理為使用者可讀的格式，並附上查詢脈絡說明
+
+### 輸出格式規範
+
+每次回傳自訂查詢結果時，**必須**包含以下脈絡資訊：
+
+| 項目 | 說明 | 範例 |
+|------|------|------|
+| 查詢對象 | 使用了哪些 Table | `OrderFilled` |
+| 計算邏輯 | 如何從欄位得出結果 | `sum(filled_price × filled_size)` |
+| 時間範圍 | 查詢的起迄時間 | `2026-04-02 00:00:00 ~ 2026-04-03 00:00:00 UTC` |
+| 篩選條件 | WHERE 中的濾網（若有） | `order_type = 'Open'`, `base_token = 'SUI'` |
+| SQL 語句 | 實際執行的完整 SQL | （以 code block 呈現） |
+| 補充說明 | 數據解讀注意事項（選用） | 「此數據為截至查詢時間的不完整日數據」 |
+
+**輸出範例**：
+
+```
+📊 查詢結果
+
+| 指標 | 值 |
+|------|-----|
+| 交易量 | $28,423.09 |
+| 成交筆數 | 299 |
+
+---
+🔍 查詢脈絡
+- **查詢對象**：OrderFilled
+- **計算邏輯**：`sum(filled_price × filled_size)` 為交易量，`count(*)` 為筆數
+- **時間範圍**：2026-04-02 00:00:00 ~ 2026-04-03 00:00:00 UTC
+- **篩選條件**：無額外篩選（包含所有 order_type）
+- **補充說明**：今日尚未結束，為截至查詢時間的部分數據
+
+<details><summary>SQL</summary>
+
+SELECT sum(filled_price * filled_size) AS total_volume_usd, count(*) AS trade_count
+FROM OrderFilled
+WHERE timestamp >= toDateTime('2026-04-02 00:00:00', 'UTC')
+  AND timestamp < toDateTime('2026-04-03 00:00:00', 'UTC')
+
+</details>
+```
+
+### API 設定
+
+```json
+{
+  "sqlQuery": {
+    "sql": "<組合出的 SQL>",
+    "size": 1000
+  },
+  "engine": "DEFAULT"
+}
+```
+
+### 安全規則
+
+- 自訂查詢一律使用 SQL endpoint（`/sql/execute`）
+- Engine 預設 `DEFAULT`，除非查詢非常簡單可用 `LITE`
+- `size` 預設 1000，大查詢可調高至 10000
+- **執行前必須向使用者確認 SQL 內容**
+- 所有請求必須帶 `User-Agent: Mozilla/5.0` header
+- API Key 讀取路徑同上：`.claude/skills/fetch-sentio-data/.api-key`

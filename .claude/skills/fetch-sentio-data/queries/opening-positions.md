@@ -40,7 +40,11 @@
 WITH
 price as (
     SELECT
-        IF(UPPER(symbol) = 'XAUT', 'XAU', UPPER(symbol)) AS symbol,
+        CASE 
+            WHEN UPPER(symbol) = 'XAUT' THEN 'XAU'
+            WHEN UPPER(symbol) = 'JPYC' THEN 'JPY'
+            ELSE UPPER(symbol)
+        END AS symbol,
         argMax(price, time) AS latest_price,
         max(time) AS latest_time
     FROM `token.prices`

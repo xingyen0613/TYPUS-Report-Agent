@@ -2,12 +2,177 @@
 
 基于 Claude Code 的自动化报告生成系统，用于制作 Typus Finance 的月报和週报。
 
+---
+
+## 🚀 Setup & Installation
+
+### Prerequisites
+
+| 工具 | 用途 | 安装方式 |
+|------|------|---------|
+| [Claude Code](https://claude.ai/code) | 核心运行环境，所有 Skills 透过 Claude Code 执行 | `npm install -g @anthropic-ai/claude-code` |
+| Node.js (≥18) | Medium 自动发布脚本 | [nodejs.org](https://nodejs.org/) 或 `brew install node` |
+| Python 3 (≥3.9) | 图表生成、封面图生成 | `brew install python3` |
+| Google Chrome | Playwright 使用系统 Chrome 操作 Medium | [google.com/chrome](https://www.google.com/chrome/) |
+
+### Step 1 — Clone & Install
+
+```bash
+git clone <repo-url>
+cd typus-report
+
+# Node.js 依赖（Playwright + Stealth Plugin）
+npm install
+
+# 安装 Playwright 浏览器（Chromium，供内部 fallback 使用）
+npx playwright install chromium
+
+# Python 依赖
+pip3 install matplotlib numpy Pillow
+
+# 选配：图表 SVG 浮水印（缺少时自动 fallback 为文字浮水印）
+brew install cairo
+pip3 install cairosvg
+```
+
+### Step 2 — Sentio API Key
+
+从 [Sentio Platform](https://app.sentio.xyz/) 取得 API Key，写入以下文件（一行纯文字）：
+
+```bash
+echo "YOUR_SENTIO_API_KEY" > .claude/skills/fetch-sentio-data/.api-key
+```
+
+此文件已加入 `.gitignore`，不会被提交。没有此 Key 将无法抓取链上数据（`/fetch-sentio-data`）。
+
+### Step 3 — Medium 帐号设置
+
+**不需要事先手动设置。** 首次执行 `/publish-medium` 时：
+
+1. 脚本检测到 `~/.config/typus-medium-session.json` 不存在
+2. 自动开启 Chrome 浏览器到 Medium 登入页
+3. 你在浏览器中手动登入 Medium 帐号（5 分钟时限）
+4. 登入成功后 session cookies 自动储存
+5. 脚本退出，提示重新执行 `/publish-medium`
+6. 之后的执行都会复用已储存的 session
+
+**切换帐号**：删除 `~/.config/typus-medium-session.json`，下次执行时会重新触发登入流程。
+
+**Session 过期**：脚本会自动检测并删除失效 session，提示你重新执行即可。
+
+### Step 4 — 品牌字体（选配）
+
+图表使用 **PF Spekk VAR** 品牌字体。安装方式：将字体文件放入 `~/Library/Fonts/`。
+
+缺少此字体时，图表会自动 fallback 到系统 sans-serif 字体，功能不受影响。
+
+### 验证安装
+
+```bash
+# 确认 Node.js 依赖
+node -e "require('playwright-extra'); console.log('✅ Node.js OK')"
+
+# 确认 Python 依赖
+python3 -c "import matplotlib, numpy, PIL; print('✅ Python OK')"
+
+# 确认 Sentio API Key
+test -f .claude/skills/fetch-sentio-data/.api-key && echo "✅ Sentio Key OK" || echo "❌ 缺少 Sentio API Key"
+
+# 启动 Claude Code
+claude
+```
+
+---
+
+## ⚡ 快速指令速查
+
+| 命令 | 用途 | 适用报告 |
+|------|------|---------|
+| `/fetch-typus-data` | 从 Google Sheets 自动更新 TVL & Users CSV | 月报 |
+| `/fetch-weekly-references` | 自动抓取 Zerocap 等来源的市场週报 | 月报 / 週报 |
+| `/fetch-sentio-data` | 从 Sentio API 抓取链上数据（或执行自訂查询） | 週报 / 临时查询 |
+| `/fetch-market-prices` | 获取加密货币历史价格（月度或週度） | 月报 / 週报 |
+| `/monthly-report-prepare` | 验证月报数据完整性，自动补全缺失数据 | 月报 |
+| `/monthly-report-generate` | 生成月报 + 副标题 + X Threads | 月报 |
+| `/convert-report-format` | 将报告转换为 Medium 优化 HTML（发布前必须） | 月报 / 週报 |
+| `/publish-medium` | 自动建立 Medium 草稿 + 上传所有图片 | 月报 / 週报 |
+| `/weekly-report-prepare` | 验证週报数据、计算指标、产出 Data Brief + 图表 | 週报 |
+| `/weekly-report-generate` | 生成週报 + 副标题 + X Threads | 週报 |
+| `/git commit` | 分析当前变更并记录到跨 session 暂存 | 通用 |
+| `/git push` | 合并所有紀录推送到 GitHub | 通用 |
+
+---
+
+## 💬 使用范例
+
+### 週报（自然语言触发）
+
+```
+你：幫我生成上週的週報，時間範圍是 3/9（週一）到 3/15（週日）
+```
+
+Claude 会自动完成完整流程：
+1. 确认时间范围 → 执行 `/fetch-sentio-data`（抓取 W3 March 2026 数据）
+2. 执行 `/weekly-report-prepare`（计算指标、生成图表、产出 Data Brief）
+3. 向你询问补充资讯（市场洞见、特殊事件）→ 执行 `/weekly-report-generate`
+4. 执行 `/convert-report-format` → 执行 `/publish-medium`（建立 Medium 草稿）
+5. 回传草稿 URL → 你发布后将 URL 贴回 → 自动更新 X Threads
+
+```
+你：幫我生成四月第一週週報
+```
+Claude 会自行推算时间范围（3/30-4/5），触发完整流程。
+
+---
+
+### 月报（自然语言触发）
+
+```
+你：幫我生成三月月報
+```
+
+Claude 会自动完成：
+1. 执行 `/monthly-report-prepare`（检查数据，缺失则自动抓取）
+2. 询问产品进度 + 营运事件 → 执行 `/monthly-report-generate`
+3. 执行 `/convert-report-format` → 执行 `/publish-medium`
+
+---
+
+### Sentio 临时数据查询
+
+`/fetch-sentio-data` 也支持自訂查询，不限于週报的 13 个标准 Query：
+
+```
+你：幫我查一下過去 7 天（4/1-4/7）SUI 的總交易量和成交筆數
+```
+
+```
+你：找出上週手續費最高的前 10 筆交易
+```
+
+```
+你：查詢某個 position_id 的完整歷史（開倉 → 加倉 → 平倉）
+```
+
+```
+你：統計 3 月份每週的 Long/Short 開倉比例趨勢
+```
+
+Claude 会：
+1. 读取相关 Table 定义（`tables/` 目录）
+2. 撰写 SQL 并向你确认
+3. 执行查询，回传结果 + 查询脈絡（使用的表、计算逻辑、时间范围、SQL）
+
+> **注意**：Sentio 自訂查询需要 `.claude/skills/fetch-sentio-data/.api-key` 存在
+
+---
+
 ## 📁 项目结构
 
 ```
 typus-report/
 ├── README.md                          # 项目说明（本文件）
-├── QUICKSTART.md                      # 快速上手指南
+├── QUICKSTART.md                      # 快速上手指南（内容已整合至 README 顶部）
 ├── CLAUDE.md                          # 项目配置指令
 ├── OPTIMIZATION_ROADMAP.md            # 优化路线图与已知问题
 ├── data-sources/                      # 数据源目录
@@ -77,11 +242,11 @@ typus-report/
 ---
 
 #### `/fetch-sentio-data`
-**功能**：从 Sentio 平台 API 抓取週报所需的 Typus 链上数据
+**功能**：从 Sentio 平台 API 抓取 Typus 链上数据，支持两种模式
 
-**用途**：週报的核心数据来源，自动执行 13 个查询
+**模式一：週报标准抓取**（13 个预设 Query）
 
-**执行内容**：
+执行内容：
 - Q1 TLP 价格走势（mTLP & iTLP-TYPUS）
 - Q2 週交易量与手续费
 - Q3 累积交易量快照
@@ -97,7 +262,20 @@ typus-report/
 - Q13 每日手续费明细
 - 保存为结构化 Markdown：`data-sources/sentio-data/week-{N}-{month}-{year}.md`
 
-**示例**：
+**模式二：自訂查询（Ad-hoc）**
+
+当需要標準 13 个 Query 以外的数据时，可直接用自然语言描述需求：
+```
+查過去 7 天 SUI 的總交易量和成交筆數
+找出上週手續費最高的前 10 筆交易
+某個 position_id 的完整開倉到平倉歷史
+```
+Claude 会自动读取 Table 定义、撰写 SQL、确认后执行，回传结果 + 完整查询脈絡。
+
+**触发方式**：
+- 手动执行 `/fetch-sentio-data`
+- 说「帮我生成上週週报」时自动触发（Claude 会从 Step 1 开始完整流程）
+
 ```bash
 /fetch-sentio-data
 ```

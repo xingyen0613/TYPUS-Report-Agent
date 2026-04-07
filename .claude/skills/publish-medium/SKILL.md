@@ -54,7 +54,28 @@ node .claude/skills/publish-medium/import-to-medium.js
   1. 開啟草稿確認內容
   2. 加 tags、選封面圖
   3. 點 Publish
+  4. 發布後將 Medium 文章 URL 貼回給我，我會自動更新 X Threads
 ```
+
+### 第四步：接收發布後 URL（自動觸發）
+
+當用戶發布後將 Medium 文章 URL（格式：`https://medium.com/@TypusFinance/...`）貼回對話時，**自動執行**以下操作：
+
+1. 根據目前對話的週報版本，找到對應的 X Threads 檔案：
+   `outputs/weekly/final/week-{N}-{month}-{year}-x-threads.md`
+   或 `outputs/monthly/final/{month}-{year}-x-threads.md`
+
+2. 將檔案中的 `[Read the full report: LINK]` 替換為實際 URL（無中括號）：
+   `Read the full report: {medium_url}`
+
+3. 回報完成：
+```
+✅ X Threads 已更新
+🔗 https://medium.com/@TypusFinance/...
+📁 outputs/weekly/final/week-{N}-{month}-{year}-x-threads.md
+```
+
+**觸發條件**：用戶在 publish-medium 流程結束後，貼入任何 `https://medium.com/@TypusFinance/` 開頭的 URL。
 
 ---
 
@@ -63,6 +84,19 @@ node .claude/skills/publish-medium/import-to-medium.js
 - Session cookies 儲存於 `~/.config/typus-medium-session.json`（**repo 目錄外**）
 - 不受 git 追蹤，不會意外上傳
 - 此 JSON 含 Medium 登入憑證，請勿分享或上傳至任何地方
+
+---
+
+## 封面圖（可選）
+
+若 `outputs/weekly/final/{week}-cover.png` 存在，腳本會自動將其插入為文章 body 的第一張圖（標題之後、副標題之前）。
+
+**命名規範**：
+- 檔名格式：`{week-basename}-cover.png`
+- 範例：`week-3-march-2026-cover.png`
+- 放置位置：`outputs/weekly/final/`
+
+若封面圖不存在，腳本正常執行，跳過封面圖步驟。
 
 ---
 

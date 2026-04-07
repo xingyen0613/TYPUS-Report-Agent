@@ -159,6 +159,7 @@ async function createDraft(htmlPath) {
   console.log(`📝 標題：${title}`);
 
   let bodyWithoutTitle = bodyHtml.replace(/<h1>[^<]*<\/h1>\s*/, '');
+  const pngCover       = findMatchingPng(htmlPath, 'cover');
   const png30d         = findMatchingPng(htmlPath, '30d-performance');
   const pngOiDist      = findMatchingPng(htmlPath, 'oi-distribution');
   const pngDailyPnl    = findMatchingPng(htmlPath, 'daily-pnl');
@@ -169,11 +170,17 @@ async function createDraft(htmlPath) {
   const pngTlpPrice    = findMatchingPng(htmlPath, 'tlp-price');
   const pngFeeBreak    = findMatchingPng(htmlPath, 'fee-breakdown');
 
+  if (pngCover) {
+    bodyWithoutTitle = '<p>[Image: Cover]</p>\n' + bodyWithoutTitle;
+    console.log(`🖼️  偵測到封面圖：${path.basename(pngCover)}`);
+  }
+
   const browser = await chromium.launch(LAUNCH_OPTS);
   const context = await browser.newContext({ storageState: SESSION_FILE });
 
   // 圖片定義：placeholder 文字對應的 PNG 路徑（含舊格式 altPlaceholder 相容）
   const uploads = [
+    { pngPath: pngCover,       placeholder: '[Image: Cover]'                                                                        },
     { pngPath: png30d,         placeholder: '[Image: 30-Day Comparison Chart]'                                                      },
     { pngPath: pngVolume,      placeholder: '[Image: Daily Volume Chart]',      altPlaceholder: '[Image: Weekly Volume Chart]'      },
     { pngPath: pngDau,         placeholder: '[Image: DAU Chart]'                                                                    },

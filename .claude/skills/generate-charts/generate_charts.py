@@ -1153,6 +1153,286 @@ def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
         return []
 
 
+# ─── Chart: 30-Day Performance ───────────────────────────────────────────────
+def chart_30d_performance(week_number, month_name, year, week_end_ts, output_path):
+    """
+    Line chart: mTLP / iTLP-TYPUS / SUI cumulative return over 30 days.
+    Data fetched live from Sentio API (TLP) + CoinGecko (SUI).
+    Uses same brand style as all other generate_charts charts (white bg, Typus colors).
+    """
+    import urllib.request as _urlreq
+    import json as _json
+    import math as _math
+    from datetime import datetime, timezone, timedelta
+    from collections import OrderedDict
+
+    C_ITLP    = '#1BB68A'   # teal green for iTLP-TYPUS
+    C_SUI_30D = '#38BDF8'   # light blue for SUI (fixed color)
+
+    chart_start_ts = int(week_end_ts) - 30 * 86400
+    end_ts         = int(week_end_ts)
+
+    # ── 1. mTLP / iTLP-TYPUS from Sentio ─────────────────────────────────────
+    api_key_path = os.path.abspath(
+        os.path.join(SCRIPT_DIR, '..', 'fetch-sentio-data', '.api-key'))
+    if not os.path.exists(api_key_path):
+        print('⚠️  Sentio API key not found — skipping 30D Performance chart')
+        return
+    with open(api_key_path) as f:
+        api_key = f.read().strip()
+    if not api_key:
+        print('⚠️  Sentio API key is empty — skipping 30D Performance chart')
+        return
+
+    payload = {
+        "version": 9,
+        "timeRange": {"start": str(chart_start_ts), "end": str(end_ts),
+                      "step": 14400, "timezone": "UTC"},
+        "limit": 20,
+        "queries": [
+            {"metricsQuery": {"query": "tlp_price", "alias": "mTLP", "id": "a",
+                              "labelSelector": {"index": "0"}, "aggregate": None,
+                              "functions": [], "color": "", "disabled": False},
+             "dataSource": "METRICS", "sourceName": ""},
+            {"metricsQuery": {"query": "tlp_price", "alias": "iTLP-TYPUS", "id": "b",
+                              "labelSelector": {"index": "1"}, "aggregate": None,
+                              "functions": [], "color": "", "disabled": False},
+             "dataSource": "METRICS", "sourceName": ""},
+        ],
+        "formulas": [],
+        "cachePolicy": {"noCache": False, "cacheTtlSecs": 43200, "cacheRefreshTtlSecs": 1800},
+    }
+    try:
+        req = _urlreq.Request(
+            "https://api.sentio.xyz/v1/insights/typus/typus_perp/query",
+            _json.dumps(payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json', 'api-key': api_key,
+                     'User-Agent': 'Mozilla/5.0'})
+        with _urlreq.urlopen(req, timeout=60) as r:
+            tlp_data = _json.loads(r.read())
+        mtlp_raw = tlp_data['results'][0]['matrix']['samples'][0]['values']
+        itlp_raw = tlp_data['results'][1]['matrix']['samples'][0]['values']
+        mtlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in mtlp_raw]
+        mtlp_prices = [float(v['value']) for v in mtlp_raw]
+        itlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in itlp_raw]
+        itlp_prices = [float(v['value']) for v in itlp_raw]
+    except Exception as e:
+        print(f'⚠️  Sentio API failed for 30D chart: {e}')
+        return
+
+    # ── 2. SUI from CoinGecko ─────────────────────────────────────────────────
+    has_sui = False
+    sui_d, sui_ret = [], []
+    try:
+        cg_url = (f'https://api.coingecko.com/api/v3/coins/sui/market_chart/range'
+                  f'?vs_currency=usd&from={chart_start_ts}&to={end_ts}')
+        req2 = _urlreq.Request(cg_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with _urlreq.urlopen(req2, timeout=15) as r2:
+            cg = _json.loads(r2.read())
+        sui_4h = OrderedDict()
+        for ts_ms, price in cg['prices']:
+            bucket = (int(ts_ms / 1000) // 14400) * 14400
+            sui_4h[bucket] = price
+        sui_dates_all  = [datetime.fromtimestamp(ts, tz=timezone.utc) for ts in sui_4h]
+        sui_prices_all = list(sui_4h.values())
+        has_sui = len(sui_dates_all) > 1
+    except Exception as e:
+        print(f'⚠️  CoinGecko API failed ({e}) — chart will show TLP lines only')
+        sui_dates_all, sui_prices_all = [], []
+
+    # ── 3. Align to common start ──────────────────────────────────────────────
+    starts = [mtlp_dates[0], itlp_dates[0]] + ([sui_dates_all[0]] if has_sui else [])
+    common_start = max(starts)
+
+    def filter_from(dates, prices):
+        pairs = [(d, p) for d, p in zip(dates, prices) if d >= common_start]
+        if not pairs:
+            return [], []
+        d_list, p_list = zip(*pairs)
+        return list(d_list), list(p_list)
+
+    mtlp_d, mtlp_p = filter_from(mtlp_dates, mtlp_prices)
+    itlp_d, itlp_p = filter_from(itlp_dates, itlp_prices)
+    if has_sui:
+        sui_d_raw, sui_p_raw = filter_from(sui_dates_all, sui_prices_all)
+        has_sui = len(sui_d_raw) > 1
+    else:
+        sui_d_raw, sui_p_raw = [], []
+
+    # ── 4. Normalise to cumulative return (%) ──────────────────────────────────
+    def norm(prices):
+        if not prices:
+            return []
+        b = prices[0]
+        return [(p / b - 1) * 100 for p in prices]
+
+    mtlp_ret  = norm(mtlp_p)
+    itlp_ret  = norm(itlp_p)
+    sui_ret_n = norm(sui_p_raw) if has_sui else []
+
+    # ── 5. Layout helpers ─────────────────────────────────────────────────────
+    LINE_L  = 110
+    LINE_R  = W - 210   # right margin for end-value annotations + legend
+    LINE_W  = LINE_R - LINE_L
+    TITLE_Y = H - 58
+    PLOT_TOP = TITLE_Y - 52
+    PLOT_BOT = 120
+    STATS_Y  = 52
+    SOURCE_Y = 20
+
+    all_rets = mtlp_ret + itlp_ret + sui_ret_n
+    if not all_rets:
+        print('⚠️  No return data for 30D chart')
+        return
+
+    y_pad  = max(abs(min(all_rets)), abs(max(all_rets))) * 0.14 or 1.0
+    y_min  = min(min(all_rets) - y_pad, -y_pad)
+    y_max  = max(max(all_rets) + y_pad,  y_pad)
+    y_rng  = y_max - y_min
+    plot_h = PLOT_TOP - PLOT_BOT
+
+    def to_y(ret):
+        return PLOT_BOT + (ret - y_min) / y_rng * plot_h
+
+    all_dates = mtlp_d or itlp_d
+    t_min = common_start.timestamp()
+    t_max = max(all_dates).timestamp()
+    t_rng = t_max - t_min or 1
+
+    def to_x(dt):
+        return LINE_L + (dt.timestamp() - t_min) / t_rng * LINE_W
+
+    # ── 6. Figure ─────────────────────────────────────────────────────────────
+    fig = plt.figure(figsize=(W / DPI, H / DPI), dpi=DPI, facecolor=C_BG)
+    ax  = fig.add_axes([0, 0, 1, 1], facecolor=C_BG)
+    ax.set_xlim(0, W)
+    ax.set_ylim(0, H)
+    ax.axis('off')
+    add_watermark(ax, alpha=0.06)
+
+    # ── Title — system font (contains hyphen, not in PF Spekk VAR) ───────────
+    ax.text(W / 2, TITLE_Y, '30-Day Performance',
+            ha='center', va='bottom', zorder=5,
+            fontsize=34, fontweight='bold', color=C_TEXT)
+
+    # ── Horizontal grid + Y labels ────────────────────────────────────────────
+    tick_mag   = 10 ** _math.floor(_math.log10(y_rng)) / 2 if y_rng > 0 else 1
+    tick_start = _math.ceil(y_min / tick_mag) * tick_mag
+    ticks, t = [], tick_start
+    while t <= y_max:
+        ticks.append(t)
+        t += tick_mag
+    for ty in ticks:
+        gy = to_y(ty)
+        if gy < PLOT_BOT - 2 or gy > PLOT_TOP + 2:
+            continue
+        lw = 1.5 if abs(ty) < 0.001 else 0.8
+        ax.plot([LINE_L, LINE_R], [gy, gy], color=C_GRID, lw=lw,
+                linestyle='--', zorder=2, alpha=0.9)
+        sign = '+' if ty > 0.001 else ''
+        ax.text(LINE_L - 6, gy, f'{sign}{ty:.0f}%',
+                ha='right', va='center', zorder=5,
+                fontsize=11, color=C_TEXT, alpha=0.55)
+
+    # ── Vertical grid (weekly Mondays) + date labels ──────────────────────────
+    dt_iter = common_start
+    while dt_iter.weekday() != 0:
+        dt_iter += timedelta(days=1)
+    while dt_iter.timestamp() <= t_max + 86400:
+        gx = to_x(dt_iter)
+        if LINE_L <= gx <= LINE_R:
+            ax.plot([gx, gx], [PLOT_BOT, PLOT_TOP], color=C_GRID, lw=0.8,
+                    linestyle='--', zorder=2, alpha=0.5)
+            ax.text(gx, PLOT_BOT - 12, dt_iter.strftime('%b %d'),
+                    ha='center', va='top', zorder=5,
+                    fontsize=11, color=C_TEXT, alpha=0.55)
+        dt_iter += timedelta(weeks=1)
+
+    # ── Lines (no inline annotations — values shown in legend) ───────────────
+    def draw_series(dates, rets, color):
+        if len(dates) < 2:
+            return
+        xs = [to_x(d) for d in dates]
+        ys = [to_y(r) for r in rets]
+        ax.plot(xs, ys, color=color, lw=2.5, zorder=4, solid_capstyle='round')
+
+    if has_sui and sui_d_raw:
+        draw_series(sui_d_raw, sui_ret_n, C_SUI_30D)
+    if itlp_d:
+        draw_series(itlp_d, itlp_ret, C_ITLP)
+    if mtlp_d:
+        draw_series(mtlp_d, mtlp_ret, C_LONG)
+
+    # ── Legend (right side) — includes final return to replace inline labels ─
+    LEG_X      = LINE_R + 20
+    mtlp_final = mtlp_ret[-1] if mtlp_ret else None
+    itlp_final = itlp_ret[-1] if itlp_ret else None
+    sui_final  = sui_ret_n[-1] if (has_sui and sui_ret_n) else None
+    entries = [(C_LONG, 'mTLP', mtlp_final), (C_ITLP, 'iTLP-TYPUS', itlp_final)]
+    if has_sui:
+        entries.append((C_SUI_30D, 'SUI', sui_final))
+    row_gap = (PLOT_TOP - PLOT_BOT) / (len(entries) + 1)
+    for i, (color, label, final_ret) in enumerate(entries):
+        ly = PLOT_TOP - (i + 0.5) * row_gap
+        ax.plot([LEG_X, LEG_X + 22], [ly, ly], color=color, lw=2.5, zorder=5)
+        ret_suffix = f'  {final_ret:+.1f}%' if final_ret is not None else ''
+        # System font — labels contain hyphens and % not in PF Spekk VAR
+        ax.text(LEG_X + 28, ly, f'{label}{ret_suffix}',
+                ha='left', va='center', zorder=5,
+                fontsize=13, fontweight='semibold', color=C_TEXT)
+
+    # ── Sharpe Ratio helper (annualised from 4h return series) ───────────────
+    def calc_sharpe(prices):
+        if len(prices) < 3:
+            return None
+        rets = [(prices[i] / prices[i - 1] - 1) for i in range(1, len(prices))]
+        n = len(rets)
+        if n < 2:
+            return None
+        mean_r = sum(rets) / n
+        var_r  = sum((r - mean_r) ** 2 for r in rets) / (n - 1)
+        std_r  = var_r ** 0.5
+        if std_r == 0:
+            return None
+        annual_factor = (365 * 24 / 4) ** 0.5   # sqrt of 4h periods per year
+        return mean_r / std_r * annual_factor
+
+    # ── Stats — 30D return + Sharpe (only for positive-return series) ─────────
+    parts = []
+    for label, ret_list, price_list in [
+        ('mTLP',       mtlp_ret,  mtlp_p),
+        ('iTLP-TYPUS', itlp_ret,  itlp_p),
+        ('SUI',
+         sui_ret_n if (has_sui and sui_ret_n) else [],
+         sui_p_raw if has_sui else []),
+    ]:
+        if not ret_list:
+            continue
+        ret_str = f'{label}: {ret_list[-1]:+.2f}%'
+        if ret_list[-1] > 0:
+            sr = calc_sharpe(price_list)
+            if sr is not None:
+                ret_str += f'  Sharpe {sr:.2f}'
+        parts.append(ret_str)
+    if parts:
+        ax.text(W / 2, STATS_Y, '   |   '.join(parts),
+                ha='center', va='bottom', zorder=5,
+                fontsize=14, fontweight='semibold', color=C_TEXT)
+
+    # ── Source ────────────────────────────────────────────────────────────────
+    ax.text(W / 2, SOURCE_Y,
+            f'mTLP / iTLP-TYPUS: Sentio Platform  ·  SUI: CoinGecko  ·  '
+            f'Week {week_number} {month_name.capitalize()} {year}',
+            ha='center', va='bottom', zorder=5,
+            fontsize=12, color=C_TEXT, alpha=0.45)
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    os.makedirs(OUTPUTS_DIR, exist_ok=True)
+    fig.savefig(output_path, dpi=DPI, facecolor=C_BG, bbox_inches=None, pad_inches=0)
+    plt.close(fig)
+    print(f'✅ 30D Performance → {output_path}')
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 def find_latest_sentio():
     files = [f for f in glob.glob(os.path.join(SENTIO_DIR, 'week-*.md'))
@@ -1165,8 +1445,13 @@ def main():
     parser.add_argument('--file',  help='Path to sentio-data MD file')
     parser.add_argument('--chart', default='all',
                         choices=['all', 'oi-dist', 'pnl', 'liquidation', 'dau',
-                                 'volume', 'oi-history', 'tlp-price', 'fee-breakdown'],
+                                 'volume', 'oi-history', 'tlp-price', 'fee-breakdown', '30d'],
                         help='Chart type (default: all)')
+    # Args for --chart 30d
+    parser.add_argument('--week-end-ts',  type=int, help='Unix timestamp for week end (required for 30d)')
+    parser.add_argument('--week-number',  type=int, help='Week number (for 30d)')
+    parser.add_argument('--month',        help='Month name lowercase (for 30d)')
+    parser.add_argument('--year',         type=int, help='Year (for 30d)')
     args = parser.parse_args()
 
     sentio_file = args.file or find_latest_sentio()
@@ -1220,6 +1505,20 @@ def main():
     if args.chart in ('all', 'fee-breakdown'):
         out = os.path.join(OUTPUTS_DIR, f'{basename}-fee-breakdown.png')
         chart_fee_breakdown(data, out)
+
+    if args.chart == '30d':
+        if not args.week_end_ts:
+            print('❌ --week-end-ts is required for --chart 30d')
+            sys.exit(1)
+        wn = args.week_number or '?'
+        mn = args.month or ''
+        yr = args.year or 0
+        out = os.path.join(OUTPUTS_DIR, f'week-{wn}-{mn}-{yr}-30d-performance.png')
+        chart_30d_performance(
+            week_number=wn, month_name=mn, year=yr,
+            week_end_ts=args.week_end_ts,
+            output_path=out,
+        )
 
 
 if __name__ == '__main__':

@@ -24,6 +24,19 @@ allowed-tools: Read, Write, Glob, WebFetch, WebSearch
 
 ---
 
+## 執行模式
+
+**此 skill 必須透過 Agent tool 以 `model: sonnet` 委派給 sub-agent 執行，不得由主對話模型直接執行。**
+
+執行步驟：
+1. 使用 Agent tool，指定 `model: "sonnet"`
+2. 將以下「執行流程」的完整內容作為 prompt 傳給 sub-agent（包含來源清單、所有步驟、輸出格式、錯誤處理）
+3. Sub-agent 完成後，將結果回報給使用者
+
+> 原因：此 skill 的核心任務（WebFetch + 精簡）屬於資料處理性質，不需要主對話等級的推理能力，使用 Sonnet 可大幅節省額度。
+
+---
+
 ## 執行流程
 
 ### Step 0 — 偵測已有的覆蓋範圍
@@ -53,21 +66,7 @@ allowed-tools: Read, Write, Glob, WebFetch, WebSearch
 2. 過濾掉：已有覆蓋的週、尚未完整結束的週（週日尚未過去）
 3. 按週分組（日後多來源時：同一週可能有多個來源的文章）
 4. 若某一週所有來源都沒有文章，則跳過（來源缺口，這是正常的）
-5. 向使用者展示計畫並確認：
-
-```
-找到 [N] 個缺少的週需要抓取：
-
-1. Week of 26 Jan, 2026
-   - Zerocap: "Weekly Crypto Market Wrap: 2 February 2026"
-2. Week of 02 Feb, 2026
-   - Zerocap: "Weekly Crypto Market Wrap: 9 February 2026"
-
-[N] 個週被跳過（所有來源均無報告）：
-- Week of 19 Jan, 2026
-
-是否繼續？
-```
+5. 直接繼續執行（sub-agent 無法與使用者互動，不需確認）
 
 ### Step 3 — 逐篇抓取 & 精簡（compact）
 
