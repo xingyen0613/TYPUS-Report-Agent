@@ -98,9 +98,9 @@ outputs/weekly/final/{week-basename}-{suffix}.png
 - 數據來源：Section 10 Daily OI Snapshot（需 `/fetch-sentio-data` Q10）
 
 ### TLP Price（`tlp-price`）
-- 折線圖，7 天，mTLP（藍）與 iTLP-TYPUS（橘）各一條線
-- Y 軸自動縮放以凸顯微小波動（尤其 iTLP-TYPUS 極穩定）
-- 底部 stats：開盤 → 收盤 + 漲跌幅（兩個 TLP 各顯示）
+- 折線圖，7 天，mTLP（藍）單線
+- Y 軸自動縮放以凸顯波動
+- 底部 stats：開盤 → 收盤 + 漲跌幅
 - 數據來源：Section 1 Daily Price Snapshot（需 `/fetch-sentio-data` Q1）
 
 ### Fee Breakdown（`fee-breakdown`）

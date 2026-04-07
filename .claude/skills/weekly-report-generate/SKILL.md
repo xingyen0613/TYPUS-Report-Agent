@@ -22,11 +22,6 @@ TLP (Typus Liquidity Pool) 是在 SUI 鏈上為永續合約交易提供流動性
   - 因底層資產包含 SUI，mTLP 價格會跟隨 SUI 幣價波動（Basket 效應）
   - **SUI/USDC 組成比例**：mTLP 的底層資產並非全是 SUI，而是 SUI + USDC 的混合（比例隨市場變動）。**每週的 SUI 權重從 Data Brief 的「mTLP TVL Composition」區塊讀取**，不可使用固定數值。分析 Basket 效應時，SUI 幣價的漲跌應按當週 SUI 權重折算。例如 SUI 權重 55%、SUI -10% 時，Basket 效應約 -5.5%。
 
-- **iTLP-TYPUS**：僅提供 TYPUS/USD 流動性，100% 由 USDC 組成
-  - 價值受兩因素影響：手續費收入、交易對手方盈虧
-  - 不受幣價影響，是純收益型產品
-  - **注意**：分析時僅需客觀描述其回報，不要過度強調其「韌性」或「穩定性」。作為純 USDC 產品，不受幣價影響是其固有特性，不是值得特別強調的優點。
-
 **Alpha 概念**：
 
 LP 最關心的問題是「我的池子比直接拿著幣好多少？」這個差值就是 **alpha**：
@@ -51,7 +46,7 @@ Alpha 為正，代表 LP 透過參與池子獲得了超額回報（通常來自 
 
 **Market Context**（敘事型標題）← Market Prices + Q2 Volume（Key Metrics）+ Token Volume Distribution + Weekly Reference + 重大事件/公告
 
-**LP Performance**（敘事型標題）← TLP Return Attribution + mTLP TVL Composition（SUI 權重）+ iTLP-TYPUS TVL（Q11）+ Key Metrics 中的 mTLP/iTLP Return + mTLP/iTLP TVL WoW + Alpha 計算（mTLP return − basket return）
+**LP Performance**（敘事型標題）← TLP Return Attribution + mTLP TVL Composition（SUI 權重）+ Key Metrics 中的 mTLP Return + mTLP TVL WoW + Alpha 計算（mTLP return − basket return）
 
 **30-Day Performance** ← 30-Day Performance Comparison 區塊
 
@@ -311,10 +306,6 @@ Market Context → [LP / Trader 先行？] → 30-Day → [OI] → 收尾
 2. **三因素歸因**解釋 alpha 來源（Fee / Counterparty / Basket）
    - 說明 SUI 幣價對 mTLP 價值的影響程度，引用 Data Brief 中的當週 SUI 權重
    - 如 Basket 效應為主要驅動，特別指出
-3. **iTLP-TYPUS 週回報** + 兩因素歸因分析（Fee / Counterparty）
-   - 客觀描述回報即可，不過度強調穩定性
-   - 可簡短提及 iTLP TVL（來自 Data Brief「iTLP-TYPUS TVL」區塊）及其 WoW 變化，反映資金規模動態
-
 圖片標記：
 - `[Image: TLP Price Chart]`
 - `[Image: Fee Breakdown]`
@@ -327,8 +318,8 @@ Market Context → [LP / Trader 先行？] → 30-Day → [OI] → 收尾
 - 各自的風險/回報特性簡述
 
 **Sharpe Ratio 使用規則**：
-- ✅ 列出：mTLP、iTLP、SUI 三者 30D 回報中**至少一個為正**，且有 ≥ 4 週數據
-- ❌ 省略：**三者 30D 回報全部為負**時，Sharpe 數值為負且不具正向參考意義，直接省略，無需說明省略原因
+- ✅ 列出：mTLP、SUI 兩者 30D 回報中**至少一個為正**，且有 ≥ 4 週數據
+- ❌ 省略：**兩者 30D 回報全部為負**時，Sharpe 數值為負且不具正向參考意義，直接省略，無需說明省略原因
 
 圖片標記：
 - `[Image: 30-Day Comparison Chart]`
@@ -490,7 +481,7 @@ Follow us: https://x.com/TypusFinance
 - 1-2 個關鍵數字
 
 ### 2/4 — LP Performance
-- mTLP / iTLP 回報
+- mTLP 回報
 - 核心亮點（alpha 來源）
 
 ### 3/4 — Trader Activity
@@ -656,5 +647,4 @@ Typus TLP Weekly Report | [Month DD, YYYY]
 - [ ] 副標題每個 < 140 字元
 - [ ] 圖片標記使用 `[Image: ...]` 格式
 - [ ] 報告語調專業客觀
-- [ ] iTLP-TYPUS 描述不過度強調穩定性
 - [ ] 無教育性/解釋性冗餘語句

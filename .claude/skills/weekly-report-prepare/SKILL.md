@@ -158,21 +158,18 @@ for weeks_back in [3, 2, 1]:
 
 ### A. TLP 回報分析
 
-**來源**：Q1 TLP Price + Q2 Fees + Q5 Trader PnL + Q9 mTLP TVL Composition + Q11 iTLP TVL
+**來源**：Q1 TLP Price + Q2 Fees + Q5 Trader PnL + Q9 mTLP TVL Composition
 
 計算：
 - **mTLP 週回報率** = (收盤價 - 開盤價) / 開盤價
-- **iTLP-TYPUS 週回報率** = (收盤價 - 開盤價) / 開盤價
 - **mTLP 資產組成**：從 Q9 提取週末快照的 SUI/USDC 權重
   - SUI 權重 = SUI USD 價值 / (SUI USD 價值 + USDC USD 價值)
   - USDC 權重 = 1 - SUI 權重
-- **iTLP-TYPUS TVL**：從 Q11 提取週末快照的總 TVL（results[0].matrix.samples[0].values 最後一筆）
-  - Total iTLP TVL = 直接讀取 Formula B 的 value
 - **回報歸因分解**：
-  - Fee Income 貢獻 = TLP Fee / mTLP TVL（或 iTLP TVL）
+  - Fee Income 貢獻 = TLP Fee / mTLP TVL
     - TVL 估算：mTLP TVL ≈ mTLP 價格 × 供應量（如數據可得），否則用 Fee 佔比近似
   - Counterparty PnL 貢獻 = -Trader PnL / TVL（交易者虧 = LP 賺）
-  - Basket 效應（僅 mTLP）= 總回報 - Fee 貢獻 - Counterparty 貢獻（殘差法）
+  - Basket 效應 = 總回報 - Fee 貢獻 - Counterparty 貢獻（殘差法）
   - **Basket 效應驗算**：SUI 週跌幅 × SUI 權重 ≈ Basket 效應（用於交叉驗證殘差法結果）
 
 ### B. 交易量摘要
@@ -252,14 +249,13 @@ for weeks_back in [3, 2, 1]:
 **來源**：嘗試讀取前 3-4 週的 Sentio 數據文件和價格文件
 
 計算（如有足夠歷史數據）：
-- iTLP-TYPUS 30 天累積回報
 - mTLP 30 天累積回報
 - SUI 30 天價格變化（來自價格數據）
 - Sharpe Ratio 估算（如有 ≥ 4 週數據）：
   - 年化回報 = 週均回報 × 52
   - 年化波動率 = 週回報標準差 × √52
   - Sharpe = 年化回報 / 年化波動率
-  - **⚠️ Sharpe 省略條件**：若 mTLP、iTLP、SUI 三者的 30D 累積回報**全部為負**，則不計算 Sharpe，在 brief 中標記：「Sharpe 省略：30D 期間三者報酬均為負，負 Sharpe 不具正向參考意義」
+  - **⚠️ Sharpe 省略條件**：若 mTLP、SUI 兩者的 30D 累積回報**全部為負**，則不計算 Sharpe，在 brief 中標記：「Sharpe 省略：30D 期間兩者報酬均為負，負 Sharpe 不具正向參考意義」
   - 若至少一者為正，正常計算並列出；SUI 的 Sharpe 同樣依此規則決定是否計算
 - 如歷史數據不足，標記：「資料不足，需累積更多週數據」
 
@@ -304,8 +300,6 @@ for weeks_back in [3, 2, 1]:
 | Protocol Fee | $X.Xk | $X.Xk | +X% |
 | mTLP Return | +X.XX% | +X.XX% | — |
 | mTLP TVL | $X.Xk | $X.Xk | +X% |
-| iTLP-TYPUS Return | +X.XX% | +X.XX% | — |
-| iTLP TVL | $X.Xk | $X.Xk | +X% |
 | Trader Realized PnL | -$X.Xk | -$X.Xk | — |
 | Total Liquidation | $X.Xk | $X.Xk | — |
 | Avg DAU | N | N | +X% |
@@ -335,24 +329,12 @@ for weeks_back in [3, 2, 1]:
 
 ---
 
-## iTLP-TYPUS TVL (週末快照)
-
-- Total iTLP TVL: $[val]
-
-> iTLP-TYPUS 為 100% USDC 組成，TVL 變動直接反映資金流入／流出情況，不受幣價影響。
-
----
-
 ## TLP Return Attribution
 
 ### mTLP (週回報: +X.XX%)
 - Fee Income 貢獻: +X.XX%
 - Counterparty PnL 貢獻: +X.XX%
 - Basket 效應 (SUI 價格): +X.XX%（SUI 權重 [X.X%] × SUI 週跌幅 [X.X%] ≈ 驗算值）
-
-### iTLP-TYPUS (週回報: +X.XX%)
-- Fee Income 貢獻: +X.XX%
-- Counterparty PnL 貢獻: +X.XX%
 
 ---
 
@@ -431,14 +413,14 @@ for weeks_back in [3, 2, 1]:
 
 ## 30-Day Performance Comparison
 
-| Metric | iTLP-TYPUS | mTLP | SUI |
-|--------|-----------|------|-----|
-| 30D Return | +X.XX% | +X.XX% | +X.X% |
-| Annualized Return | +XX.X% | +XX.X% | — |
-| Annualized Vol | XX.X% | XX.X% | — |
-| Sharpe Ratio | [值 或 省略] | [值 或 省略] | [值 或 省略] |
+| Metric | mTLP | SUI |
+|--------|------|-----|
+| 30D Return | +X.XX% | +X.X% |
+| Annualized Return | +XX.X% | — |
+| Annualized Vol | XX.X% | — |
+| Sharpe Ratio | [值 或 省略] | [值 或 省略] |
 
-> Sharpe 規則：若三者 30D 回報全部為負，整列省略並標注「Sharpe 省略：30D 期間三者報酬均為負，負 Sharpe 不具正向參考意義」；若至少一者為正，則三者均計算（SUI 亦同）。
+> Sharpe 規則：若兩者 30D 回報全部為負，整列省略並標注「Sharpe 省略：30D 期間兩者報酬均為負，負 Sharpe 不具正向參考意義」；若至少一者為正，則兩者均計算（SUI 亦同）。
 > [如數據不足：「歷史數據不足（僅 [N] 週），需累積至少 4 週數據以計算完整 30 天績效。」]
 
 [Image: 30-Day Comparison Chart]
@@ -483,7 +465,7 @@ python3 .claude/skills/generate-charts/generate_charts.py \
 
 > 其中 `unix_end`、`week_number`、`month_name`、`year` 均由 Step 0 計算得出。
 
-圖表使用與所有其他週報圖表相同的品牌風格（白底 `#FFFFFF`、Typus 藍 `#5056EA`、珊瑚紅 `#E8556D`、青綠 `#1BB68A`），數據直接從 Sentio API（mTLP/iTLP）和 CoinGecko（SUI）即時抓取。
+圖表使用與所有其他週報圖表相同的品牌風格（白底 `#FFFFFF`、Typus 藍 `#5056EA`、珊瑚紅 `#E8556D`），數據直接從 Sentio API（mTLP）和 CoinGecko（SUI）即時抓取。
 
 ### 圖表輸出
 
@@ -544,7 +526,6 @@ Key Metrics:
 | Volume | $X.XM | $X.XM | +X% |
 | TLP Fee | $X.Xk | $X.Xk | +X% |
 | mTLP Return | +X.XX% | +X.XX% | — |
-| iTLP Return | +X.XX% | +X.XX% | — |
 | Trader PnL | -$X.Xk | -$X.Xk | — |
 | Avg DAU | N | N | +X% |
 | Total OI | $X.XM | — | — |

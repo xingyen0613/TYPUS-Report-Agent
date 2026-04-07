@@ -65,8 +65,8 @@ Medium session cookies are stored at `~/.config/typus-medium-session.json` (outs
 ## TVL Calculation
 
 System ignores the old TVL_Total column. Use:
-- **Total TVL** = TVL_Perps + DOV TVL + (2 × SAFU TVL)
-- **Options TVL** = DOV TVL + (2 × SAFU TVL)
+- **Total TVL** = TVL_Perps + DOV TVL + SAFU TVL
+- **Options TVL** = DOV TVL + SAFU TVL
 
 ## Data Presentation Rules
 

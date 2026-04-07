@@ -108,13 +108,12 @@ with open('.claude/skills/fetch-sentio-data/.api-key') as f:
 | 8 | `queries/opening-positions.md` | SQL | **即時快照**（不需動態時間） | DEFAULT |
 | 9 | `queries/mtlp-tvl-composition.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
 | 10 | `queries/oi-history.md` | SQL | **SQL 字串替換**：`{{START_TIME}}`/`{{END_TIME}}` | DEFAULT |
-| 11 | `queries/itlp-tvl.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
-| 12 | `queries/daily-volume.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
-| 13 | `queries/daily-fees.md` | SQL | **SQL 字串替換**：`{{START_TIME}}`/`{{END_TIME}}` | DEFAULT |
+| 11 | `queries/daily-volume.md` | Metrics | `timeRange.start/end` = Unix timestamp, `step=86400` | — |
+| 12 | `queries/daily-fees.md` | SQL | **SQL 字串替換**：`{{START_TIME}}`/`{{END_TIME}}` | DEFAULT |
 
 #### API 呼叫範本
 
-**Metrics endpoint**（Query 1, 3, 4, 7, 9, 11, 12）：
+**Metrics endpoint**（Query 1, 3, 4, 7, 9, 11）：
 ```python
 import json, urllib.request
 
@@ -181,20 +180,17 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 ### mTLP
 - 週開盤: $[value] | 週收盤: $[value] | 變化: [+/-X.XX%]
 
-### iTLP-TYPUS
-- 週開盤: $[value] | 週收盤: $[value] | 變化: [+/-X.XX%]
-
 ### Daily Price Snapshot（每日收盤價，取每日最後一筆）
 
-| Day | Date | mTLP | iTLP-TYPUS |
-|-----|------|------|------------|
-| Mon | [date] | $[val] | $[val] |
-| Tue | [date] | $[val] | $[val] |
-| Wed | [date] | $[val] | $[val] |
-| Thu | [date] | $[val] | $[val] |
-| Fri | [date] | $[val] | $[val] |
-| Sat | [date] | $[val] | $[val] |
-| Sun | [date] | $[val] | $[val] |
+| Day | Date | mTLP |
+|-----|------|------|
+| Mon | [date] | $[val] |
+| Tue | [date] | $[val] |
+| Wed | [date] | $[val] |
+| Thu | [date] | $[val] |
+| Fri | [date] | $[val] |
+| Sat | [date] | $[val] |
+| Sun | [date] | $[val] |
 
 > 從 Q1 回傳的小時序列（step=3600）中，按日分組取最後一筆 value 作為當日收盤價。
 
@@ -310,16 +306,7 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 
 ---
 
-## 11. iTLP-TYPUS TVL（iTLP 資金池總鎖定價值）
-
-**週末快照（[date]）**：
-- Total iTLP TVL: $[val]
-
-> iTLP-TYPUS 為 100% USDC 組成，TVL 直接反映資金規模。
-
----
-
-## 12. Daily Total Volume（每日總交易量）
+## 11. Daily Total Volume（每日總交易量）
 
 | Day | Date | Volume (USD) |
 |-----|------|--------------|
@@ -369,7 +356,7 @@ sql = sql.replace("{{END_TIME}}", sql_end)
    data-sources/sentio-data/[filename]
 
 📊 數據統計：
-   - Q1 TLP Price: mTLP [開盤→收盤], iTLP [開盤→收盤]
+   - Q1 TLP Price: mTLP [開盤→收盤]
    - Q2 Volume: $[weekly_vol] (WoW [+/-X%])
    - Q3 Cumulative Volume: $[cum_vol]
    - Q4 Top Trading Pair: [token] ($[vol])
@@ -379,9 +366,8 @@ sql = sql.replace("{{END_TIME}}", sql_end)
    - Q8 Total OI: $[oi] (L/S: [ratio])
    - Q9 mTLP Composition: SUI [X%] / USDC [X%]
    - Q10 OI History: 週初 $[start_oi] → 週末 $[end_oi] ([+/-X%])
-   - Q11 iTLP TVL: $[val]
-   - Q12 Daily Volume: 週一 $[mon_vol] ~ 週日 $[sun_vol]，週總 $[total_vol]
-   - Q13 Daily Fees: TLP Fee 週總 $[val]，Protocol Fee 週總 $[val]
+   - Q11 Daily Volume: 週一 $[mon_vol] ~ 週日 $[sun_vol]，週總 $[total_vol]
+   - Q12 Daily Fees: TLP Fee 週總 $[val]，Protocol Fee 週總 $[val]
 
 💡 下一步：
    運行 /weekly-report-generate 開始撰寫週報
@@ -411,7 +397,6 @@ sql = sql.replace("{{END_TIME}}", sql_end)
 - SQL query 有兩種 engine：大部分用 `DEFAULT`，Query 6 用 `LITE`
 - SQL 時間替換：Query 2 用 `variables`；Query 5、6、10 直接字串替換 `{{START_TIME}}`/`{{END_TIME}}`
 - Query 10（OI History）：`{{END_TIME}}` 同時作為事件上限（`event` CTE WHERE）和輸出範圍過濾（最終 SELECT WHERE），確保不包含目標週之後的數據
-- Query 11（iTLP TVL）：使用 `index: "1"`（iTLP 池）；Formula A disabled，Formula B（sum）enabled；回傳 results[0] = 總 TVL
 - 金額顯示保留 2 位小數，大數字用千分位分隔
 
 ---

@@ -222,17 +222,15 @@ def parse_sentio(filepath):
             if not line.startswith('|') or '---|' in line:
                 continue
             cols = [c.strip() for c in line.split('|')[1:-1]]
-            if len(cols) < 4 or cols[0] in ('Day', ''):
+            if len(cols) < 3 or cols[0] in ('Day', ''):
                 continue
             if cols[0] not in day_names:
                 continue
             mltp = parse_dollar(cols[2])
-            itlp = parse_dollar(cols[3])
             tlp_daily.append({
                 'day':  cols[0],
                 'date': cols[1],
                 'mtlp': float(mltp) if isinstance(mltp, float) else None,
-                'itlp': float(itlp) if isinstance(itlp, float) else None,
             })
     data['tlp_daily'] = tlp_daily
 
@@ -799,8 +797,8 @@ def chart_oi_history(data, output_path):
 # ─── Chart: TLP Price ─────────────────────────────────────────────────────────
 def chart_tlp_price(data, output_path):
     """
-    Dual-line chart: mTLP and iTLP-TYPUS daily close price over 7 days.
-    mTLP = blue (C_LONG), iTLP-TYPUS = orange.
+    Single-line chart: mTLP daily close price over 7 days.
+    mTLP = blue (C_LONG).
     """
     rows = data.get('tlp_daily', [])
     if not rows:
@@ -810,10 +808,7 @@ def chart_tlp_price(data, output_path):
     dates  = [r['date'] for r in rows]
     labels = [d[5:] if len(d) == 10 else d for d in dates]
     mtlp_vals = [r['mtlp'] for r in rows]
-    itlp_vals = [r['itlp'] for r in rows]
     n_pts = len(rows)
-
-    C_ORANGE = '#F4A261'
 
     # ── Figure ────────────────────────────────────────────────────────────────
     fig = plt.figure(figsize=(W / DPI, H / DPI), dpi=DPI, facecolor=C_BG)
@@ -837,8 +832,8 @@ def chart_tlp_price(data, output_path):
             ha='center', va='bottom', zorder=5,
             fontproperties=fp_brand(34, 'black'), color=C_TEXT)
 
-    # ── Y scale (shared axis, but compute range sensibly) ─────────────────────
-    all_vals = [v for v in mtlp_vals + itlp_vals if v is not None]
+    # ── Y scale ───────────────────────────────────────────────────────────────
+    all_vals = [v for v in mtlp_vals if v is not None]
     if not all_vals:
         print('⚠️  TLP daily price all None — skipping chart')
         plt.close(fig)
@@ -887,32 +882,16 @@ def chart_tlp_price(data, output_path):
             ax.scatter([px_], [py_], color=color, s=40, zorder=5, linewidths=0)
 
     draw_line(mtlp_vals, C_LONG, 'mTLP')
-    draw_line(itlp_vals, C_ORANGE, 'iTLP-TYPUS')
-
-    # ── Legend (right side) ────────────────────────────────────────────────────
-    LEG_X = LINE_R + 20
-    for i, (color, lbl) in enumerate([(C_LONG, 'mTLP'), (C_ORANGE, 'iTLP-TYPUS')]):
-        ly = PLOT_TOP - (i + 1) * (PLOT_TOP - PLOT_BOT) / 3
-        ax.plot([LEG_X, LEG_X + 22], [ly, ly], color=color, lw=2.5, zorder=5)
-        ax.text(LEG_X + 28, ly, lbl,
-                ha='left', va='center', zorder=5,
-                fontproperties=fp_brand(13, 'semibold'), color=C_TEXT)
 
     # ── Stats (always use current week = last 7 rows) ──────────────────────────
     curr = rows[-7:] if len(rows) >= 7 else rows
     m_start = curr[0].get('mtlp')  if curr else None
     m_end   = curr[-1].get('mtlp') if curr else None
-    i_start = curr[0].get('itlp')  if curr else None
-    i_end   = curr[-1].get('itlp') if curr else None
     parts = []
     if m_start and m_end:
         chg = (m_end - m_start) / m_start * 100
         sign = '+' if chg >= 0 else ''
         parts.append(f'mTLP: ${m_start:.4f} → ${m_end:.4f} ({sign}{chg:.2f}%)')
-    if i_start and i_end:
-        chg = (i_end - i_start) / i_start * 100
-        sign = '+' if chg >= 0 else ''
-        parts.append(f'iTLP: ${i_start:.4f} → ${i_end:.4f} ({sign}{chg:.2f}%)')
     if parts:
         ax.text(W / 2, STATS_Y, '   |   '.join(parts),
                 ha='center', va='bottom', zorder=5,
@@ -1083,7 +1062,7 @@ def load_prev_tlp_daily(current_file, n_back=3):
 
 
 def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
-    """Fetch ~n_extra_weeks of mTLP/iTLP daily prices from Sentio API as fallback."""
+    """Fetch ~n_extra_weeks of mTLP daily prices from Sentio API as fallback."""
     import urllib.request, json as _json
     from datetime import datetime, timezone
     import time as _time
@@ -1110,10 +1089,6 @@ def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
             {"metricsQuery": {"query": "tlp_price", "alias": "mTLP", "id": "a",
                               "labelSelector": {"index": "0"}, "aggregate": None,
                               "functions": [], "color": "", "disabled": False},
-             "dataSource": "METRICS", "sourceName": ""},
-            {"metricsQuery": {"query": "tlp_price", "alias": "iTLP-TYPUS", "id": "b",
-                              "labelSelector": {"index": "1"}, "aggregate": None,
-                              "functions": [], "color": "", "disabled": False},
              "dataSource": "METRICS", "sourceName": ""}
         ],
         "formulas": [],
@@ -1131,12 +1106,11 @@ def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
             result = _json.loads(r.read())
 
         mtlp_vals = result['results'][0]['matrix']['samples'][0]['values']
-        itlp_vals = result['results'][1]['matrix']['samples'][0]['values']
 
         day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         skip = set(exclude_dates or [])
         rows = []
-        for mv, iv in zip(mtlp_vals, itlp_vals):
+        for mv in mtlp_vals:
             dt = datetime.fromtimestamp(int(mv['timestamp']), tz=timezone.utc)
             date_str = dt.strftime('%Y-%m-%d')
             if date_str in skip:
@@ -1145,7 +1119,6 @@ def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
                 'day':  day_names[dt.weekday()],
                 'date': date_str,
                 'mtlp': float(mv['value']),
-                'itlp': float(iv['value']),
             })
         return rows
     except Exception as e:
@@ -1156,8 +1129,8 @@ def fetch_tlp_history_from_api(exclude_dates=None, n_extra_weeks=3):
 # ─── Chart: 30-Day Performance ───────────────────────────────────────────────
 def chart_30d_performance(week_number, month_name, year, week_end_ts, output_path):
     """
-    Line chart: mTLP / iTLP-TYPUS / SUI cumulative return over 30 days.
-    Data fetched live from Sentio API (TLP) + CoinGecko (SUI).
+    Line chart: mTLP / SUI cumulative return over 30 days.
+    Data fetched live from Sentio API (mTLP) + CoinGecko (SUI).
     Uses same brand style as all other generate_charts charts (white bg, Typus colors).
     """
     import urllib.request as _urlreq
@@ -1166,13 +1139,12 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
     from datetime import datetime, timezone, timedelta
     from collections import OrderedDict
 
-    C_ITLP    = '#1BB68A'   # teal green for iTLP-TYPUS
     C_SUI_30D = '#38BDF8'   # light blue for SUI (fixed color)
 
     chart_start_ts = int(week_end_ts) - 30 * 86400
     end_ts         = int(week_end_ts)
 
-    # ── 1. mTLP / iTLP-TYPUS from Sentio ─────────────────────────────────────
+    # ── 1. mTLP from Sentio ──────────────────────────────────────────────────
     api_key_path = os.path.abspath(
         os.path.join(SCRIPT_DIR, '..', 'fetch-sentio-data', '.api-key'))
     if not os.path.exists(api_key_path):
@@ -1194,10 +1166,6 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
                               "labelSelector": {"index": "0"}, "aggregate": None,
                               "functions": [], "color": "", "disabled": False},
              "dataSource": "METRICS", "sourceName": ""},
-            {"metricsQuery": {"query": "tlp_price", "alias": "iTLP-TYPUS", "id": "b",
-                              "labelSelector": {"index": "1"}, "aggregate": None,
-                              "functions": [], "color": "", "disabled": False},
-             "dataSource": "METRICS", "sourceName": ""},
         ],
         "formulas": [],
         "cachePolicy": {"noCache": False, "cacheTtlSecs": 43200, "cacheRefreshTtlSecs": 1800},
@@ -1211,11 +1179,8 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
         with _urlreq.urlopen(req, timeout=60) as r:
             tlp_data = _json.loads(r.read())
         mtlp_raw = tlp_data['results'][0]['matrix']['samples'][0]['values']
-        itlp_raw = tlp_data['results'][1]['matrix']['samples'][0]['values']
         mtlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in mtlp_raw]
         mtlp_prices = [float(v['value']) for v in mtlp_raw]
-        itlp_dates  = [datetime.fromtimestamp(int(v['timestamp']), tz=timezone.utc) for v in itlp_raw]
-        itlp_prices = [float(v['value']) for v in itlp_raw]
     except Exception as e:
         print(f'⚠️  Sentio API failed for 30D chart: {e}')
         return
@@ -1241,7 +1206,7 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
         sui_dates_all, sui_prices_all = [], []
 
     # ── 3. Align to common start ──────────────────────────────────────────────
-    starts = [mtlp_dates[0], itlp_dates[0]] + ([sui_dates_all[0]] if has_sui else [])
+    starts = [mtlp_dates[0]] + ([sui_dates_all[0]] if has_sui else [])
     common_start = max(starts)
 
     def filter_from(dates, prices):
@@ -1252,7 +1217,6 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
         return list(d_list), list(p_list)
 
     mtlp_d, mtlp_p = filter_from(mtlp_dates, mtlp_prices)
-    itlp_d, itlp_p = filter_from(itlp_dates, itlp_prices)
     if has_sui:
         sui_d_raw, sui_p_raw = filter_from(sui_dates_all, sui_prices_all)
         has_sui = len(sui_d_raw) > 1
@@ -1267,7 +1231,6 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
         return [(p / b - 1) * 100 for p in prices]
 
     mtlp_ret  = norm(mtlp_p)
-    itlp_ret  = norm(itlp_p)
     sui_ret_n = norm(sui_p_raw) if has_sui else []
 
     # ── 5. Layout helpers ─────────────────────────────────────────────────────
@@ -1280,7 +1243,7 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
     STATS_Y  = 52
     SOURCE_Y = 20
 
-    all_rets = mtlp_ret + itlp_ret + sui_ret_n
+    all_rets = mtlp_ret + sui_ret_n
     if not all_rets:
         print('⚠️  No return data for 30D chart')
         return
@@ -1294,7 +1257,7 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
     def to_y(ret):
         return PLOT_BOT + (ret - y_min) / y_rng * plot_h
 
-    all_dates = mtlp_d or itlp_d
+    all_dates = mtlp_d
     t_min = common_start.timestamp()
     t_max = max(all_dates).timestamp()
     t_rng = t_max - t_min or 1
@@ -1358,17 +1321,14 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
 
     if has_sui and sui_d_raw:
         draw_series(sui_d_raw, sui_ret_n, C_SUI_30D)
-    if itlp_d:
-        draw_series(itlp_d, itlp_ret, C_ITLP)
     if mtlp_d:
         draw_series(mtlp_d, mtlp_ret, C_LONG)
 
     # ── Legend (right side) — includes final return to replace inline labels ─
     LEG_X      = LINE_R + 20
     mtlp_final = mtlp_ret[-1] if mtlp_ret else None
-    itlp_final = itlp_ret[-1] if itlp_ret else None
     sui_final  = sui_ret_n[-1] if (has_sui and sui_ret_n) else None
-    entries = [(C_LONG, 'mTLP', mtlp_final), (C_ITLP, 'iTLP-TYPUS', itlp_final)]
+    entries = [(C_LONG, 'mTLP', mtlp_final)]
     if has_sui:
         entries.append((C_SUI_30D, 'SUI', sui_final))
     row_gap = (PLOT_TOP - PLOT_BOT) / (len(entries) + 1)
@@ -1400,8 +1360,7 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
     # ── Stats — 30D return + Sharpe (only for positive-return series) ─────────
     parts = []
     for label, ret_list, price_list in [
-        ('mTLP',       mtlp_ret,  mtlp_p),
-        ('iTLP-TYPUS', itlp_ret,  itlp_p),
+        ('mTLP', mtlp_ret, mtlp_p),
         ('SUI',
          sui_ret_n if (has_sui and sui_ret_n) else [],
          sui_p_raw if has_sui else []),
@@ -1421,7 +1380,7 @@ def chart_30d_performance(week_number, month_name, year, week_end_ts, output_pat
 
     # ── Source ────────────────────────────────────────────────────────────────
     ax.text(W / 2, SOURCE_Y,
-            f'mTLP / iTLP-TYPUS: Sentio Platform  ·  SUI: CoinGecko  ·  '
+            f'mTLP: Sentio Platform  ·  SUI: CoinGecko  ·  '
             f'Week {week_number} {month_name.capitalize()} {year}',
             ha='center', va='bottom', zorder=5,
             fontsize=12, color=C_TEXT, alpha=0.45)
