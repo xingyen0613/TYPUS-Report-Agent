@@ -65,8 +65,15 @@ function extractContent(htmlPath) {
 function findMatchingPng(htmlPath, suffix) {
   const dir = path.dirname(htmlPath);
   const base = path.basename(htmlPath).replace('-medium-version.html', '');
-  const pngPath = path.join(dir, `${base}-${suffix}.png`);
-  return fs.existsSync(pngPath) ? pngPath : null;
+  // Try full base name first, then strip trailing '-report' (e.g. week-5-march-2026-report → week-5-march-2026)
+  const candidates = [
+    path.join(dir, `${base}-${suffix}.png`),
+    path.join(dir, `${base.replace(/-report$/, '')}-${suffix}.png`),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 // 上傳 PNG 至 Medium CDN，回傳 CDN URL（失敗則回傳 null）

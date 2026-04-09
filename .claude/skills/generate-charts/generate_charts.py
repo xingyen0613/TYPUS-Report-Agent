@@ -208,8 +208,8 @@ def parse_sentio(filepath):
     data['oi_daily']  = oi_daily
     data['oi_tokens'] = oi_tokens
 
-    # Section 12 — Daily Total Volume
-    data['daily_volume'] = _parse_day_table(raw, 12, 2, parse_dollar)
+    # Section 11 — Daily Total Volume
+    data['daily_volume'] = _parse_day_table(raw, 11, 2, parse_dollar)
 
     # Section 1 — TLP Price Daily Snapshot
     # Sub-table "Daily Price Snapshot" inside Section 1

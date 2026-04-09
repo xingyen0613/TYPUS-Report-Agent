@@ -22,6 +22,7 @@ import sys
 import os
 import json
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 try:
@@ -280,11 +281,13 @@ def main():
         print('  Monthly：python3 generate-cover.py --monthly <month-basename> "<title>" "<date>"')
 
     elif args[0] == "--monthly":
-        if len(args) < 4:
-            print("用法：python3 generate-cover.py --monthly <month-basename> \"<title>\" \"<date>\"")
-            print("範例：python3 generate-cover.py --monthly march-2026 \"Mar 2026 Report\" \"Apr 4, 2026\"")
+        if len(args) < 3:
+            print("用法：python3 generate-cover.py --monthly <month-basename> \"<title>\" [\"<date>\"]")
+            print("      date 可省略，省略時自動使用今天日期")
+            print("範例：python3 generate-cover.py --monthly march-2026 \"Mar 2026 Report\"")
             sys.exit(1)
-        generate_monthly(args[1], args[2], args[3], Path("outputs/monthly/final"))
+        date_str = args[3] if len(args) >= 4 else date.today().strftime("%b %-d, %Y")
+        generate_monthly(args[1], args[2], date_str, Path("outputs/monthly/final"))
 
     else:
         if len(args) < 2:

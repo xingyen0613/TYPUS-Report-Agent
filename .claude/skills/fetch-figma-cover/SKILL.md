@@ -34,12 +34,16 @@ python3 .claude/skills/fetch-figma-cover/generate-cover.py --monthly <month-base
 ```
 
 - `<title>`：月報標題，格式 `Mar 2026 Report`（報告內容月份）
-- `<date>`：發布當日日期，格式 `Apr 4, 2026`
+- `<date>`：發布當日日期，格式 `Apr 9, 2026`（**可省略，省略時自動使用執行當天日期**）
 - 輸出：`outputs/monthly/final/{month-basename}-cover.png`
 
 範例：
 ```bash
-python3 .claude/skills/fetch-figma-cover/generate-cover.py --monthly march-2026 "Mar 2026 Report" "Apr 4, 2026"
+# 省略日期 → 自動用今天（推薦）
+python3 .claude/skills/fetch-figma-cover/generate-cover.py --monthly march-2026 "Mar 2026 Report"
+
+# 或手動指定日期
+python3 .claude/skills/fetch-figma-cover/generate-cover.py --monthly march-2026 "Mar 2026 Report" "Apr 9, 2026"
 ```
 
 ---
