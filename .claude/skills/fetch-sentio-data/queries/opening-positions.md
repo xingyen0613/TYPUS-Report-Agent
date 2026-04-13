@@ -47,7 +47,13 @@ price as (
             WHEN UPPER(symbol) = 'WOIL' THEN 'USOIL'
             ELSE UPPER(symbol)
         END AS symbol,
-        argMax(price, time) AS latest_price,
+        argMax(
+        CASE
+            WHEN UPPER(symbol) = 'JPY' THEN 1 / price
+            ELSE price
+        END,
+        time
+    ) AS latest_price,
         max(time) AS latest_time
     FROM `token.prices`
     GROUP BY symbol
