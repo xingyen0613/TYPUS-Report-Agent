@@ -43,6 +43,8 @@ price as (
         CASE 
             WHEN UPPER(symbol) = 'XAUT' THEN 'XAU'
             WHEN UPPER(symbol) = 'JPYC' THEN 'JPY'
+            WHEN UPPER(symbol) = 'XAGM' THEN 'XAG'
+            WHEN UPPER(symbol) = 'WOIL' THEN 'USOIL'
             ELSE UPPER(symbol)
         END AS symbol,
         argMax(price, time) AS latest_price,
