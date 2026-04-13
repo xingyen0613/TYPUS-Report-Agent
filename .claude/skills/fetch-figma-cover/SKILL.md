@@ -14,15 +14,19 @@ allowed-tools: Bash
 ## Weekly 封面
 
 ```bash
-python3 .claude/skills/fetch-figma-cover/generate-cover.py <week-basename> "<date>"
+python3 .claude/skills/fetch-figma-cover/generate-cover.py <week-basename>
 ```
 
-- `<date>`：報告週期第一天（週一），格式 `Mar. 23, 2026`
+- `<date>` 可省略，**省略時自動使用執行當天日期（發布日）**
 - 輸出：`outputs/weekly/final/{week-basename}-cover.png`
 
 範例：
 ```bash
-python3 .claude/skills/fetch-figma-cover/generate-cover.py week-4-march-2026 "Mar. 23, 2026"
+# 推薦：省略日期，自動用今天
+python3 .claude/skills/fetch-figma-cover/generate-cover.py week-4-march-2026
+
+# 或手動指定日期
+python3 .claude/skills/fetch-figma-cover/generate-cover.py week-4-march-2026 "Mar. 30, 2026"
 ```
 
 ---

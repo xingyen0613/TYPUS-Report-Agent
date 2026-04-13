@@ -23,6 +23,27 @@ ls -t outputs/weekly/final/*-medium-version.html outputs/monthly/final/*-medium-
 
 若無結果，提示用戶先執行 `/convert-report-format`。
 
+### 第一步半：自動生成封面圖
+
+在執行腳本前，先確認封面圖是否存在：
+
+```bash
+ls outputs/weekly/final/*-cover.png outputs/monthly/final/*-cover.png 2>/dev/null
+```
+
+**情況 A — 封面圖已存在**：顯示路徑，直接繼續。
+
+**情況 B — 封面圖不存在**：自動執行 `/fetch-figma-cover` 生成封面圖：
+
+- 週報：`python3 .claude/skills/fetch-figma-cover/generate-cover.py {week-basename}`
+  - `{week-basename}`：當前週報的 basename，例如 `week-1-april-2026`
+  - 日期自動使用執行當天（發布日），無需傳入
+- 月報：`python3 .claude/skills/fetch-figma-cover/generate-cover.py --monthly {month-basename} "{Month YYYY Report}"`
+
+生成後確認輸出檔案存在，再繼續執行 Playwright 腳本。**禁止在未嘗試生成的情況下直接跳過封面圖。**
+
+---
+
 ### 第二步：執行 Playwright 腳本
 
 ```bash

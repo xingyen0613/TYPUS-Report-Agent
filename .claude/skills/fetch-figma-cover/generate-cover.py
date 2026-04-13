@@ -290,11 +290,13 @@ def main():
         generate_monthly(args[1], args[2], date_str, Path("outputs/monthly/final"))
 
     else:
-        if len(args) < 2:
-            print("用法：python3 generate-cover.py <week-basename> \"<date>\"")
-            print("範例：python3 generate-cover.py week-4-march-2026 \"Mar. 23, 2026\"")
+        if len(args) < 1:
+            print("用法：python3 generate-cover.py <week-basename> [\"<date>\"]")
+            print("      date 可省略，省略時自動使用今天日期")
+            print("範例：python3 generate-cover.py week-4-march-2026")
             sys.exit(1)
-        generate_weekly(args[0], args[1], Path("outputs/weekly/final"))
+        date_str = args[1] if len(args) >= 2 else date.today().strftime("%b %-d, %Y")
+        generate_weekly(args[0], date_str, Path("outputs/weekly/final"))
 
 
 if __name__ == "__main__":

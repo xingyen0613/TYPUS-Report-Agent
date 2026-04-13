@@ -18,10 +18,19 @@ Steps must run in order; later steps auto-trigger earlier ones if data is missin
                                     └── auto-triggers /fetch-weekly-references (if market refs missing)
 3. /weekly-report-generate     ← Writes Medium article + subtitles + X Threads
 4. /convert-report-format      ← Converts Markdown → Medium-optimized HTML
-5. /publish-medium             ← Playwright: creates Medium draft, uploads all PNGs to CDN
+5. /fetch-figma-cover          ← Generates cover PNG locally (auto-runs before publish-medium)
+6. /publish-medium             ← Playwright: creates Medium draft, uploads all PNGs to CDN
 ```
 
-**After generating the report draft, ALWAYS proceed through all remaining steps** (HTML conversion → Medium publish → X Threads URL update) unless explicitly told to pause.
+**Automation rules — minimize user interruptions:**
+
+- Steps 4→5→6 (convert → cover → publish) chain automatically after user confirms the report draft. No confirmation needed between these steps.
+- `/fetch-figma-cover` always runs automatically before `/publish-medium`; never ask the user to provide a cover.
+- The only required user inputs in the full workflow are:
+  1. Step 3 supplemental context (macro observations, highlights) — ask once, move on
+  2. Step 3 subtitle selection — present options, wait for choice
+  3. After Medium publish — wait for user to paste the published URL
+- Do NOT pause between steps 4, 5, and 6. Run them back-to-back.
 
 When user pastes back the published Medium URL, auto-update the LINK placeholder in the corresponding X Threads file.
 
@@ -31,7 +40,8 @@ When user pastes back the published Medium URL, auto-update the LINK placeholder
 1. /monthly-report-prepare     ← auto-triggers /fetch-typus-data and /fetch-weekly-references as needed
 2. /monthly-report-generate    ← auto-triggers /fetch-market-prices if missing
 3. /convert-report-format
-4. /publish-medium
+4. /fetch-figma-cover          ← Generates cover PNG locally (auto-runs before publish-medium)
+5. /publish-medium
 ```
 
 ## Data Sources & File Naming

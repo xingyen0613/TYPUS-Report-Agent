@@ -234,9 +234,9 @@ def parse_sentio(filepath):
             })
     data['tlp_daily'] = tlp_daily
 
-    # Section 13 — Daily Fees
-    data['daily_tlp_fee']      = _parse_day_table(raw, 13, 2, parse_dollar)
-    data['daily_protocol_fee'] = _parse_day_table(raw, 13, 3, parse_dollar)
+    # Section 12 — Daily Fees
+    data['daily_tlp_fee']      = _parse_day_table(raw, 12, 2, parse_dollar)
+    data['daily_protocol_fee'] = _parse_day_table(raw, 12, 3, parse_dollar)
 
     # Section 8 — Opening Positions
     sec = re.search(r'## 8\..*?\n(.*?)(?=\n## |\Z)', raw, re.DOTALL)
@@ -917,7 +917,7 @@ def chart_fee_breakdown(data, output_path):
     prot_rows = data.get('daily_protocol_fee', [])
 
     if not tlp_rows:
-        print('⚠️  No daily fee data (Section 13) — skipping Fee Breakdown chart')
+        print('⚠️  No daily fee data (Section 12) — skipping Fee Breakdown chart')
         return
 
     # Build aligned daily arrays
