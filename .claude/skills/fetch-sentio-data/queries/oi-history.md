@@ -87,13 +87,7 @@ fixdata as (
     base_token,
     position_id,
     order_id,
-    case
-        when event_name = 'OrderFilled' and base_token = 'SUI' and order_id = 2761 then -1000
-        when event_name = 'OrderFilled' and base_token = 'WAL' and order_id = 150 then -1000
-        when event_name = 'OrderFilled' and base_token = 'WAL' and order_id = 164 then -20354
-        when event_name = 'OrderFilled' and base_token = 'BTC' and order_id = 12498 then round(Size,4)
-        else Size
-    end as Size,
+    Size,
     price
     from event
     order by time desc
